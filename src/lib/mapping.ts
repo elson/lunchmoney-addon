@@ -1,6 +1,4 @@
-import type { MappingEntry, AccountMapping } from '../types';
-
-export const MAPPING_SECRET_KEY = 'account-mapping';
+import type { AccountMapping } from '../types';
 
 export function serializeMapping(mapping: AccountMapping): string {
   return JSON.stringify(mapping);
@@ -13,21 +11,6 @@ export function deserializeMapping(raw: string | null): AccountMapping {
   } catch {
     return {};
   }
-}
-
-export function entryToSelectValue(entry: MappingEntry): string {
-  if (entry.type === 'ignore') return 'ignore';
-  if (entry.type === 'create') return 'create';
-  return `existing:${entry.wfAccountId}`;
-}
-
-export function selectValueToEntry(val: string): MappingEntry {
-  if (val === 'ignore') return { type: 'ignore' };
-  if (val === 'create') return { type: 'create' };
-  if (val.startsWith('existing:')) {
-    return { type: 'existing', wfAccountId: val.slice('existing:'.length) };
-  }
-  return { type: 'ignore' };
 }
 
 export function mappingsEqual(a: AccountMapping, b: AccountMapping): boolean {
@@ -44,6 +27,20 @@ export function mappingsEqual(a: AccountMapping, b: AccountMapping): boolean {
     }
   }
   return true;
+}
+
+export function cleanMapping(
+  mapping: AccountMapping,
+  validWfIds: Set<string>,
+): AccountMapping {
+  const cleaned: AccountMapping = {};
+  for (const [key, entry] of Object.entries(mapping)) {
+    cleaned[Number(key)] =
+      entry.type === 'existing' && !validWfIds.has(entry.wfAccountId)
+        ? { type: 'ignore' }
+        : entry;
+  }
+  return cleaned;
 }
 
 export function claimedWfIds(draft: AccountMapping): Set<string> {

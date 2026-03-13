@@ -9,16 +9,26 @@ import {
 } from '@wealthfolio/ui';
 import type { LunchmoneyAccount } from '../lib/lunchmoney';
 import type { AccountMapping, MappingEntry } from '../types';
-import {
-  claimedWfIds,
-  entryToSelectValue,
-  selectValueToEntry,
-} from '../lib/mapping';
+import { claimedWfIds } from '../lib/mapping';
+
+function entryToSelectValue(entry: MappingEntry): string {
+  if (entry.type === 'ignore') return 'ignore';
+  if (entry.type === 'create') return 'create';
+  return `existing:${entry.wfAccountId}`;
+}
+
+function selectValueToEntry(val: string): MappingEntry {
+  if (val === 'ignore') return { type: 'ignore' };
+  if (val === 'create') return { type: 'create' };
+  if (val.startsWith('existing:')) {
+    return { type: 'existing', wfAccountId: val.slice('existing:'.length) };
+  }
+  return { type: 'ignore' };
+}
 
 interface AccountLinkTableProps {
   lmAccounts: LunchmoneyAccount[];
   wfAccounts: Account[];
-  savedMapping: AccountMapping;
   draft: AccountMapping;
   onDraftChange: (lmId: number, entry: MappingEntry) => void;
 }

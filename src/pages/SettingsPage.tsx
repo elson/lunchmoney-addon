@@ -9,8 +9,7 @@ import {
   Input,
   Label,
 } from '@wealthfolio/ui';
-
-const API_KEY_SECRET = 'lunchmoney-api-key';
+import { API_KEY_SECRET } from '../lib/secrets';
 
 export default function SettingsPage({ ctx }: { ctx: AddonContext }) {
   const [apiKey, setApiKey] = useState('');

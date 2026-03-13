@@ -22,10 +22,16 @@ This is a **Wealthfolio addon** that syncs Lunch Money accounts to Wealthfolio h
 
 **Folder conventions**:
 - `src/components/` — shared UI components
-- `src/hooks/` — custom React hooks (e.g. TanStack Query hooks wrapping `ctx.api` calls)
-- `src/lib/` — pure utilities
+- `src/hooks/` — custom React hooks (e.g. `useAccountSync` for data loading and save flow)
+- `src/lib/` — pure utilities and API modules (see below)
 - `src/pages/` — full page components registered via `ctx.router.add`
 - `src/types/` — TypeScript interfaces
+
+**Library modules** (`src/lib/`):
+- `lunchmoney.ts` — Lunch Money API types and fetch functions. Extend here for new LM endpoints.
+- `wealthfolio.ts` — Wealthfolio account creation helpers. Extend here for new WF operations.
+- `secrets.ts` — Secret key constants (`API_KEY_SECRET`, `MAPPING_SECRET_KEY`). All secret keys in one place.
+- `mapping.ts` — Account mapping domain logic: serialize/deserialize, equality, stale cleanup, claimed IDs. Pure functions, no React.
 
 ## AddonContext API
 
@@ -160,7 +166,7 @@ Both account types share these relevant fields:
 }
 ```
 
-Fetch logic lives in `src/lib/lunchmoney.ts` — extend it for new endpoints rather than adding fetch calls inline.
+Fetch logic lives in `src/lib/lunchmoney.ts` — extend it for new endpoints rather than adding fetch calls inline. Wealthfolio account operations live in `src/lib/wealthfolio.ts`.
 
 ### Cleanup pattern
 
