@@ -128,6 +128,8 @@ Risk levels: **High** (accounts, portfolio, activities, secrets) · **Medium** (
 
 ## Lunchmoney V2 API
 
+> **IMPORTANT: This addon must ONLY read from the Lunchmoney API. Never implement any POST, PUT, PATCH, or DELETE calls. Do not create, modify, or delete any Lunchmoney data under any circumstances.**
+
 **Base URL**: `https://api.lunchmoney.dev/v2`
 **Auth**: `Authorization: Bearer <api_key>` (stored in secrets under key `lunchmoney-api-key`)
 **Docs UI**: https://alpha.lunchmoney.dev/v2/docs (Scalar, rendered in browser — not machine-readable directly)
