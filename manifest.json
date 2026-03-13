@@ -1,0 +1,19 @@
+{
+  "id": "lunchmoney-addon",
+  "name": "lunchmoney-addon",
+  "version": "1.0.0",
+  "description": "Synchronise Lunchmoney accounts to Wealthfolio holdings",
+  "author": "stephen.elson@gmail.com",
+  "main": "dist/addon.js",
+  "sdkVersion": "1.0.0",
+  "enabled": true,
+  "permissions": [
+    {
+      "category": "ui",
+      "functions": ["sidebar.addItem"],
+      "purpose": "Add navigation items to the sidebar"
+    }
+  ],
+  "keywords": ["wealthfolio", "addon"],
+  "license": "MIT"
+}
