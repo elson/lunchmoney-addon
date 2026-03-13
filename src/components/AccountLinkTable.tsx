@@ -7,6 +7,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@wealthfolio/ui';
+function LinkIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+    </svg>
+  );
+}
+
+function LinkOffIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+      <line x1="2" y1="2" x2="22" y2="22"/>
+    </svg>
+  );
+}
 import type { LunchmoneyAccount } from '../lib/lunchmoney';
 import type { AccountMapping, MappingEntry } from '../types';
 import { claimedWfIds } from '../lib/mapping';
@@ -103,34 +121,33 @@ export function AccountLinkTable({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-muted-foreground text-left">
-                <th className="pb-2 font-medium">Name</th>
-                <th className="pb-2 font-medium">Type</th>
-                <th className="pb-2 font-medium">Subtype</th>
-                <th className="pb-2 font-medium">Currency</th>
+                <th className="pb-2 font-medium">Lunch Money Account</th>
+                <th className="pb-2 w-6"></th>
+                <th className="pb-2 font-medium pl-2">Wealthfolio Account</th>
+                <th className="pb-2 font-medium pl-4">Type</th>
+                <th className="pb-2 font-medium pl-4">Subtype</th>
+                <th className="pb-2 font-medium pl-4">Currency</th>
                 <th className="pb-2 font-medium text-right">Balance</th>
-                <th className="pb-2 font-medium pl-4">Wealthfolio Account</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((acc) => (
                 <tr key={acc.id} className="border-b last:border-0">
                   <td className="py-2 pr-4">{acc.display_name || acc.name}</td>
-                  <td className="py-2 pr-4 text-muted-foreground capitalize">
-                    {acc.type}
+                  <td className="py-2 w-6">
+                    {acc.type === 'cash' ? (
+                      (() => {
+                        const entry = draft[acc.id];
+                        const isLinked = entry?.type === 'existing' || entry?.type === 'create';
+                        return isLinked ? (
+                          <LinkIcon className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <LinkOffIcon className="w-4 h-4 text-amber-500" />
+                        );
+                      })()
+                    ) : null}
                   </td>
-                  <td className="py-2 pr-4 text-muted-foreground capitalize">
-                    {acc.subtype ?? '—'}
-                  </td>
-                  <td className="py-2 pr-4 uppercase text-muted-foreground">
-                    {acc.currency}
-                  </td>
-                  <td className="py-2 text-right tabular-nums">
-                    {parseFloat(acc.balance).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </td>
-                  <td className="py-2 pl-4">
+                  <td className="py-2 pl-2">
                     {acc.type === 'cash' ? (
                       <WfAccountSelect
                         lmId={acc.id}
@@ -139,6 +156,21 @@ export function AccountLinkTable({
                         onDraftChange={onDraftChange}
                       />
                     ) : null}
+                  </td>
+                  <td className="py-2 pl-4 pr-4 text-muted-foreground capitalize">
+                    {acc.type}
+                  </td>
+                  <td className="py-2 pl-4 pr-4 text-muted-foreground capitalize">
+                    {acc.subtype ?? '—'}
+                  </td>
+                  <td className="py-2 pl-4 pr-4 uppercase text-muted-foreground">
+                    {acc.currency}
+                  </td>
+                  <td className="py-2 text-right tabular-nums">
+                    {parseFloat(acc.balance).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </td>
                 </tr>
               ))}
