@@ -12,6 +12,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  Separator,
 } from '@wealthfolio/ui';
 import { SettingsPage } from './pages';
 import { AccountLinkTable, ConfirmSaveDialog } from './components';
@@ -49,7 +50,11 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
     return (
       <div>
         <div className="px-6 pt-6">
-          <Button variant="ghost" size="sm" onClick={() => setShowSettings(false)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowSettings(false)}
+          >
             <Icons.ChevronLeft className="h-4 w-4 mr-1" />
             Back
           </Button>
@@ -67,42 +72,47 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
           <div className="flex items-center gap-3">
             {lastSynced && (
               <span className="text-xs text-muted-foreground">
-                Last synced {formatDistanceToNow(lastSynced, { addSuffix: true })}
+                Last synced{' '}
+                {formatDistanceToNow(lastSynced, { addSuffix: true })}
               </span>
             )}
-          <TooltipProvider>
-            <div className="flex items-center gap-2">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={handleRefresh}
-                    disabled={loading || !hasApiKey}
-                  >
-                    {loading ? (
-                      <Icons.Loader className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Icons.Refresh className="h-4 w-4" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Refresh Lunch Money accounts</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" onClick={() => setShowSettings(true)}>
-                    <Icons.Settings className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Settings</TooltipContent>
-              </Tooltip>
-            </div>
-          </TooltipProvider>
+            <TooltipProvider>
+              <div className="flex items-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={handleRefresh}
+                      disabled={loading || !hasApiKey}
+                    >
+                      {loading ? (
+                        <Icons.Loader className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Icons.Refresh className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Refresh Lunch Money accounts</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setShowSettings(true)}
+                    >
+                      <Icons.Settings className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Settings</TooltipContent>
+                </Tooltip>
+              </div>
+            </TooltipProvider>
           </div>
         </CardHeader>
+        <Separator />
         <CardContent>
-
           {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
 
           {!hasApiKey && (
@@ -112,7 +122,9 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
           )}
 
           {hasApiKey && lmAccounts?.length === 0 && (
-            <p className="mt-3 text-sm text-muted-foreground">No accounts found.</p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              No accounts found.
+            </p>
           )}
 
           {lmAccounts && lmAccounts.length > 0 && wfAccounts && (
@@ -126,7 +138,10 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
 
               {isDirty && (
                 <div className="mt-4 flex gap-2">
-                  <Button onClick={() => setShowConfirm(true)} disabled={isSaving}>
+                  <Button
+                    onClick={() => setShowConfirm(true)}
+                    disabled={isSaving}
+                  >
                     {isSaving ? (
                       <>
                         <Icons.Loader className="h-4 w-4 mr-2 animate-spin" />
@@ -136,7 +151,11 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
                       'Save changes'
                     )}
                   </Button>
-                  <Button variant="outline" onClick={handleUndo} disabled={isSaving}>
+                  <Button
+                    variant="outline"
+                    onClick={handleUndo}
+                    disabled={isSaving}
+                  >
                     Undo
                   </Button>
                 </div>
@@ -148,7 +167,10 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
                 savedMapping={savedMapping}
                 lmAccounts={lmAccounts}
                 wfAccounts={wfAccounts}
-                onConfirm={async () => { setShowConfirm(false); await handleConfirm(); }}
+                onConfirm={async () => {
+                  setShowConfirm(false);
+                  await handleConfirm();
+                }}
                 onCancel={() => setShowConfirm(false)}
               />
             </>
