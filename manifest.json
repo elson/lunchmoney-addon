@@ -9,6 +9,11 @@
   "enabled": true,
   "permissions": [
     {
+      "category": "accounts",
+      "functions": ["getAll"],
+      "purpose": "Display account summary"
+    },
+    {
       "category": "ui",
       "functions": ["sidebar.addItem"],
       "purpose": "Add navigation items to the sidebar"
