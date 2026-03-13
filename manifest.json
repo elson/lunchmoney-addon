@@ -10,8 +10,8 @@
   "permissions": [
     {
       "category": "accounts",
-      "functions": ["getAll"],
-      "purpose": "Display account summary"
+      "functions": ["getAll", "create"],
+      "purpose": "Display and link Lunch Money accounts to Wealthfolio accounts"
     },
     {
       "category": "secrets",
