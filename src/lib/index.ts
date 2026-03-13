@@ -1,9 +1,9 @@
 export { fetchAllAccounts, type LunchmoneyAccount } from './lunchmoney';
 export { createWfAccountFromLm } from './wealthfolio';
-export { API_KEY_SECRET, MAPPING_SECRET_KEY } from './secrets';
+export { API_KEY_SECRET } from './secrets';
 export {
-  serializeMapping,
-  deserializeMapping,
+  loadMapping,
+  saveMapping,
   mappingsEqual,
   cleanMapping,
   claimedWfIds,

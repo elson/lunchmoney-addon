@@ -1,4 +1,11 @@
+import type { AddonContext } from '@wealthfolio/addon-sdk';
 import type { AccountMapping } from '../types';
+
+const MAPPING_STORAGE_KEY = 'lunchmoney-addon:account-mapping';
+const LAST_SYNCED_STORAGE_KEY = 'lunchmoney-addon:last-synced';
+
+// Legacy key — used only for one-time migration from secrets to localStorage
+const MAPPING_SECRET_KEY_LEGACY = 'account-mapping';
 
 export function serializeMapping(mapping: AccountMapping): string {
   return JSON.stringify(mapping);
@@ -11,6 +18,41 @@ export function deserializeMapping(raw: string | null): AccountMapping {
   } catch {
     return {};
   }
+}
+
+/**
+ * Load mapping from localStorage, migrating from secrets on first run if needed.
+ */
+export async function loadMapping(ctx: AddonContext): Promise<AccountMapping> {
+  const stored = localStorage.getItem(MAPPING_STORAGE_KEY);
+  if (stored !== null) {
+    return deserializeMapping(stored);
+  }
+
+  // One-time migration: pull from secrets, write to localStorage, delete from secrets
+  const fromSecrets = await ctx.api.secrets.get(MAPPING_SECRET_KEY_LEGACY);
+  if (fromSecrets) {
+    localStorage.setItem(MAPPING_STORAGE_KEY, fromSecrets);
+    await ctx.api.secrets.delete(MAPPING_SECRET_KEY_LEGACY);
+    return deserializeMapping(fromSecrets);
+  }
+
+  return {};
+}
+
+export function saveMapping(mapping: AccountMapping): void {
+  localStorage.setItem(MAPPING_STORAGE_KEY, serializeMapping(mapping));
+}
+
+export function loadLastSynced(): Date | null {
+  const raw = localStorage.getItem(LAST_SYNCED_STORAGE_KEY);
+  if (!raw) return null;
+  const ts = Number(raw);
+  return isNaN(ts) ? null : new Date(ts);
+}
+
+export function saveLastSynced(): void {
+  localStorage.setItem(LAST_SYNCED_STORAGE_KEY, String(Date.now()));
 }
 
 export function mappingsEqual(a: AccountMapping, b: AccountMapping): boolean {

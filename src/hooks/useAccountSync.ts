@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import type { AddonContext, Account } from '@wealthfolio/addon-sdk';
 import { fetchAllAccounts, type LunchmoneyAccount } from '../lib/lunchmoney';
 import { createWfAccountFromLm } from '../lib/wealthfolio';
-import { API_KEY_SECRET, MAPPING_SECRET_KEY } from '../lib/secrets';
+import { API_KEY_SECRET } from '../lib/secrets';
 import {
-  deserializeMapping,
-  serializeMapping,
+  loadMapping,
+  saveMapping,
+  loadLastSynced,
+  saveLastSynced,
   mappingsEqual,
   cleanMapping,
 } from '../lib/mapping';
@@ -21,6 +23,7 @@ interface AccountSyncState {
   hasApiKey: boolean | null;
   isSaving: boolean;
   isDirty: boolean;
+  lastSynced: Date | null;
 }
 
 interface AccountSyncActions {
@@ -43,6 +46,7 @@ export function useAccountSync(
   const [error, setError] = useState<string | null>(null);
   const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [lastSynced, setLastSynced] = useState<Date | null>(() => loadLastSynced());
 
   useEffect(() => {
     if (paused) return;
@@ -62,15 +66,17 @@ export function useAccountSync(
     setError(null);
     setLoading(true);
     try {
-      const [lmData, wfData, rawMapping] = await Promise.all([
+      const [lmData, wfData, mapping] = await Promise.all([
         fetchAllAccounts(key),
         ctx.api.accounts.getAll(),
-        ctx.api.secrets.get(MAPPING_SECRET_KEY),
+        loadMapping(ctx),
       ]);
 
       const wfIdSet = new Set(wfData.map((a) => String(a.id)));
-      const cleaned = cleanMapping(deserializeMapping(rawMapping), wfIdSet);
+      const cleaned = cleanMapping(mapping, wfIdSet);
 
+      saveLastSynced();
+      setLastSynced(new Date());
       setLmAccounts(lmData);
       setWfAccounts(wfData);
       setSavedMapping(cleaned);
@@ -109,7 +115,7 @@ export function useAccountSync(
         finalDraft[lmId] = { type: 'existing', wfAccountId: String(created.id) };
       }
 
-      await ctx.api.secrets.set(MAPPING_SECRET_KEY, serializeMapping(finalDraft));
+      saveMapping(finalDraft);
 
       const wfData = await ctx.api.accounts.getAll();
       setWfAccounts(wfData);
@@ -132,6 +138,7 @@ export function useAccountSync(
     hasApiKey,
     isSaving,
     isDirty: !mappingsEqual(draft, savedMapping),
+    lastSynced,
     handleRefresh,
     handleDraftChange,
     handleUndo,

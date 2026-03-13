@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { formatDistanceToNow } from 'date-fns';
 import type { AddonContext } from '@wealthfolio/addon-sdk';
 import {
   Card,
@@ -7,6 +8,10 @@ import {
   CardTitle,
   Icons,
   Button,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@wealthfolio/ui';
 import { SettingsPage } from './pages';
 import { AccountLinkTable, ConfirmSaveDialog } from './components';
@@ -26,11 +31,19 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
     hasApiKey,
     isSaving,
     isDirty,
+    lastSynced,
     handleRefresh,
     handleDraftChange,
     handleUndo,
     handleConfirm,
   } = useAccountSync(ctx, showSettings);
+
+  // Re-render the "X ago" label every minute
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   if (showSettings) {
     return (
@@ -51,21 +64,44 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle>Lunch Money Accounts</CardTitle>
-          <Button variant="outline" size="icon" onClick={() => setShowSettings(true)}>
-            <Icons.Settings className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-3">
+            {lastSynced && (
+              <span className="text-xs text-muted-foreground">
+                Last synced {formatDistanceToNow(lastSynced, { addSuffix: true })}
+              </span>
+            )}
+          <TooltipProvider>
+            <div className="flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleRefresh}
+                    disabled={loading || !hasApiKey}
+                  >
+                    {loading ? (
+                      <Icons.Loader className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Icons.Refresh className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Refresh Lunch Money accounts</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon" onClick={() => setShowSettings(true)}>
+                    <Icons.Settings className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Settings</TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
+          </div>
         </CardHeader>
         <CardContent>
-          <Button onClick={handleRefresh} disabled={loading || !hasApiKey}>
-            {loading ? (
-              <>
-                <Icons.Loader className="h-4 w-4 mr-2 animate-spin" />
-                Fetching…
-              </>
-            ) : (
-              'Refresh Lunch Money accounts'
-            )}
-          </Button>
 
           {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
 
