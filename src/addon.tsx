@@ -137,7 +137,14 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
               />
 
               {isDirty && (
-                <div className="mt-4 flex gap-2">
+                <div className="mt-4 flex gap-2 justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={handleUndo}
+                    disabled={isSaving}
+                  >
+                    Undo
+                  </Button>
                   <Button
                     onClick={() => setShowConfirm(true)}
                     disabled={isSaving}
@@ -148,15 +155,8 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
                         Saving…
                       </>
                     ) : (
-                      'Save changes'
+                      'Save'
                     )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleUndo}
-                    disabled={isSaving}
-                  >
-                    Undo
                   </Button>
                 </div>
               )}
