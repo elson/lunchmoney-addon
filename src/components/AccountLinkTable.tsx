@@ -102,14 +102,16 @@ export function AccountLinkTable({
   draft,
   onDraftChange,
 }: AccountLinkTableProps) {
-  const grouped = lmAccounts.reduce<Record<string, LunchmoneyAccount[]>>(
-    (acc, a) => {
-      const key = a.institution_name || 'Other';
-      (acc[key] ??= []).push(a);
-      return acc;
-    },
-    {},
-  );
+  const grouped = lmAccounts
+    .filter((a) => a.type === 'cash')
+    .reduce<Record<string, LunchmoneyAccount[]>>(
+      (acc, a) => {
+        const key = a.institution_name || 'Other';
+        (acc[key] ??= []).push(a);
+        return acc;
+      },
+      {},
+    );
 
   return (
     <div className="mt-4 space-y-6">
@@ -135,27 +137,23 @@ export function AccountLinkTable({
                 <tr key={acc.id} className="border-b last:border-0">
                   <td className="py-2 pr-4">{acc.display_name || acc.name}</td>
                   <td className="py-2 w-6">
-                    {acc.type === 'cash' ? (
-                      (() => {
-                        const entry = draft[acc.id];
-                        const isLinked = entry?.type === 'existing' || entry?.type === 'create';
-                        return isLinked ? (
-                          <LinkIcon className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <LinkOffIcon className="w-4 h-4 text-amber-500" />
-                        );
-                      })()
-                    ) : null}
+                    {(() => {
+                      const entry = draft[acc.id];
+                      const isLinked = entry?.type === 'existing' || entry?.type === 'create';
+                      return isLinked ? (
+                        <LinkIcon className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <LinkOffIcon className="w-4 h-4 text-amber-500" />
+                      );
+                    })()}
                   </td>
                   <td className="py-2 pl-2">
-                    {acc.type === 'cash' ? (
-                      <WfAccountSelect
-                        lmId={acc.id}
-                        wfAccounts={wfAccounts}
-                        draft={draft}
-                        onDraftChange={onDraftChange}
-                      />
-                    ) : null}
+                    <WfAccountSelect
+                      lmId={acc.id}
+                      wfAccounts={wfAccounts}
+                      draft={draft}
+                      onDraftChange={onDraftChange}
+                    />
                   </td>
                   <td className="py-2 pl-4 pr-4 text-muted-foreground capitalize">
                     {acc.type}
