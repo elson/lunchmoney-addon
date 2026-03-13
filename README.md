@@ -1,6 +1,6 @@
-# lunchmoney-addon
+# Wealthfolio Lunch Money Addon
 
-Synchronise Lunchmoney accounts to Wealthfolio holdings
+Synchronise Lunch Money accounts to Wealthfolio holdings
 
 ## Development
 

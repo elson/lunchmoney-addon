@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Responsive design for all screen sizes
 
 ### Features
-- Synchronise Lunchmoney accounts to Wealthfolio holdings
+- Synchronise Lunch Money accounts to Wealthfolio holdings
 - User-friendly interface
 - Compatible with Wealthfolio platform
 

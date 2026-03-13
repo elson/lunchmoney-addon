@@ -2,7 +2,7 @@
   "id": "lunchmoney-addon",
   "name": "lunchmoney-addon",
   "version": "1.0.0",
-  "description": "Synchronise Lunchmoney accounts to Wealthfolio holdings",
+  "description": "Synchronise Lunch Money accounts to Wealthfolio holdings",
   "author": "stephen.elson@gmail.com",
   "main": "dist/addon.js",
   "sdkVersion": "1.0.0",
@@ -16,7 +16,7 @@
     {
       "category": "secrets",
       "functions": ["get", "set", "delete"],
-      "purpose": "Store Lunchmoney API key securely"
+      "purpose": "Store Lunch Money API key securely"
     },
     {
       "category": "ui",

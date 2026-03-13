@@ -39,17 +39,17 @@ export default function SettingsPage({ ctx }: { ctx: AddonContext }) {
     <div className="p-6">
       <Card>
         <CardHeader>
-          <CardTitle>Lunchmoney Settings</CardTitle>
+          <CardTitle>Lunch Money Settings</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="api-key">Lunchmoney API Key</Label>
+            <Label htmlFor="api-key">Lunch Money API Key</Label>
             <Input
               id="api-key"
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Enter your Lunchmoney API key"
+              placeholder="Enter your Lunch Money API key"
             />
           </div>
           <div className="flex gap-2 items-center">

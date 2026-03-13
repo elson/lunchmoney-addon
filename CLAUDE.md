@@ -14,7 +14,7 @@ pnpm bundle       # Full release: clean → build → zip package
 
 ## Architecture
 
-This is a **Wealthfolio addon** that syncs Lunchmoney accounts to Wealthfolio holdings. The addon is distributed as a single bundled ES module (`dist/addon.js`).
+This is a **Wealthfolio addon** that syncs Lunch Money accounts to Wealthfolio holdings. The addon is distributed as a single bundled ES module (`dist/addon.js`).
 
 **Entry point**: `src/addon.tsx` exports a default `enable(ctx: AddonContext)` function. This is the only function Wealthfolio calls — it receives an `AddonContext` that exposes the full SDK surface.
 
@@ -126,9 +126,9 @@ Declared in `manifest.json` under `"permissions"`. Add a permission entry before
 
 Risk levels: **High** (accounts, portfolio, activities, secrets) · **Medium** (assets, performance, goals, settings, files) · **Low** (market-data, quotes, events)
 
-## Lunchmoney V2 API
+## Lunch Money V2 API
 
-> **IMPORTANT: This addon must ONLY read from the Lunchmoney API. Never implement any POST, PUT, PATCH, or DELETE calls. Do not create, modify, or delete any Lunchmoney data under any circumstances.**
+> **IMPORTANT: This addon must ONLY read from the Lunch Money API. Never implement any POST, PUT, PATCH, or DELETE calls. Do not create, modify, or delete any Lunch Money data under any circumstances.**
 
 **Base URL**: `https://api.lunchmoney.dev/v2`
 **Auth**: `Authorization: Bearer <api_key>` (stored in secrets under key `lunchmoney-api-key`)

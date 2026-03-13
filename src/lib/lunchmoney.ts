@@ -5,6 +5,7 @@ export interface LunchmoneyAccount {
   name: string;
   display_name: string | null;
   type: string;
+  subtype: string | null;
   currency: string;
   balance: string;
   institution_name?: string;
@@ -16,15 +17,23 @@ async function fetchJson<T>(path: string, apiKey: string): Promise<T> {
     headers: { Authorization: `Bearer ${apiKey}` },
   });
   if (!res.ok) {
-    throw new Error(`Lunchmoney API error ${res.status}: ${res.statusText}`);
+    throw new Error(`Lunch Money API error ${res.status}: ${res.statusText}`);
   }
   return res.json() as Promise<T>;
 }
 
-export async function fetchAllAccounts(apiKey: string): Promise<LunchmoneyAccount[]> {
+export async function fetchAllAccounts(
+  apiKey: string,
+): Promise<LunchmoneyAccount[]> {
   const [manualRes, plaidRes] = await Promise.all([
-    fetchJson<{ manual_accounts: LunchmoneyAccount[] }>('/manual_accounts', apiKey),
-    fetchJson<{ plaid_accounts: LunchmoneyAccount[] }>('/plaid_accounts', apiKey),
+    fetchJson<{ manual_accounts: LunchmoneyAccount[] }>(
+      '/manual_accounts',
+      apiKey,
+    ),
+    fetchJson<{ plaid_accounts: LunchmoneyAccount[] }>(
+      '/plaid_accounts',
+      apiKey,
+    ),
   ]);
   return [...manualRes.manual_accounts, ...plaidRes.plaid_accounts];
 }
