@@ -4,7 +4,10 @@
   "description": "Synchronise Lunchmoney accounts to Wealthfolio holdings",
   "type": "module",
   "main": "dist/addon.js",
-  "keywords": ["wealthfolio", "addon"],
+  "keywords": [
+    "wealthfolio",
+    "addon"
+  ],
   "license": "MIT",
   "scripts": {
     "build": "vite build",
@@ -17,6 +20,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.90.21",
     "@wealthfolio/addon-sdk": "^2.0.0",
     "@wealthfolio/ui": "^2.0.0",
     "react": "^19.1.1",
@@ -24,11 +28,11 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.13",
-    "@wealthfolio/addon-dev-tools": "^2.0.0",
     "@types/node": "^20.0.0",
     "@types/react": "^19.1.1",
     "@types/react-dom": "^19.1.1",
     "@vitejs/plugin-react": "^5.0.2",
+    "@wealthfolio/addon-dev-tools": "^2.0.0",
     "rollup-plugin-external-globals": "^0.13.0",
     "tailwindcss": "^4.1.13",
     "typescript": "^5.9.2",
