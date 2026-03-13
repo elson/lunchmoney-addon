@@ -14,6 +14,11 @@
       "purpose": "Display account summary"
     },
     {
+      "category": "secrets",
+      "functions": ["get", "set", "delete"],
+      "purpose": "Store Lunchmoney API key securely"
+    },
+    {
       "category": "ui",
       "functions": ["sidebar.addItem"],
       "purpose": "Add navigation items to the sidebar"

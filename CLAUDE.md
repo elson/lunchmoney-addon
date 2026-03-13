@@ -126,6 +126,40 @@ Declared in `manifest.json` under `"permissions"`. Add a permission entry before
 
 Risk levels: **High** (accounts, portfolio, activities, secrets) · **Medium** (assets, performance, goals, settings, files) · **Low** (market-data, quotes, events)
 
+## Lunchmoney V2 API
+
+**Base URL**: `https://api.lunchmoney.dev/v2`
+**Auth**: `Authorization: Bearer <api_key>` (stored in secrets under key `lunchmoney-api-key`)
+**Docs UI**: https://alpha.lunchmoney.dev/v2/docs (Scalar, rendered in browser — not machine-readable directly)
+**OpenAPI spec** (machine-readable YAML, ~350 KB):
+```bash
+curl -s https://alpha.lunchmoney.dev/v2/openapi
+```
+
+### Key endpoints used by this addon
+
+```
+GET /manual_accounts   → { manual_accounts: ManualAccount[] }
+GET /plaid_accounts    → { plaid_accounts: PlaidAccount[] }
+```
+
+Both account types share these relevant fields:
+```typescript
+{
+  id: number
+  name: string
+  display_name: string | null   // prefer over name if set
+  type: string                  // e.g. "cash", "credit", "investment"
+  currency: string              // lowercase ISO, e.g. "usd"
+  balance: string               // decimal string, e.g. "1234.5600"
+  to_base: number               // balance converted to user's base currency
+  status: string                // "active" | "inactive" | "closed"
+  institution_name?: string
+}
+```
+
+Fetch logic lives in `src/lib/lunchmoney.ts` — extend it for new endpoints rather than adding fetch calls inline.
+
 ### Cleanup pattern
 
 Always unsubscribe event listeners and remove sidebar items in `onDisable`:
