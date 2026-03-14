@@ -116,9 +116,12 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
           {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
 
           {!hasApiKey && (
-            <p className="mt-6 text-sm text-muted-foreground text-center">
-              Add your Lunch Money access token to get started
-            </p>
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <Button onClick={() => setShowSettings(true)}>Get started</Button>
+              <p className="text-sm text-muted-foreground">
+                Add your Lunch Money access token to get started
+              </p>
+            </div>
           )}
 
           {hasApiKey && lmAccounts?.length === 0 && (
