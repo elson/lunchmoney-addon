@@ -8,6 +8,7 @@ import {
   Button,
   Input,
   Label,
+  Icons,
 } from '@wealthfolio/ui';
 import { API_KEY_SECRET } from '../lib/secrets';
 
@@ -35,6 +36,17 @@ export default function SettingsPage({ ctx }: { ctx: AddonContext }) {
   }
 
   return (
+    <div>
+      <div className="px-6 pt-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => ctx.api.navigation.navigate('/addon/lunch-money')}
+        >
+          <Icons.ChevronLeft className="h-4 w-4 mr-1" />
+          Back
+        </Button>
+      </div>
     <div className="p-6">
       <Card>
         <CardHeader>
@@ -67,6 +79,7 @@ export default function SettingsPage({ ctx }: { ctx: AddonContext }) {
           </div>
         </CardContent>
       </Card>
+    </div>
     </div>
   );
 }

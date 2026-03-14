@@ -19,7 +19,6 @@ import { AccountLinkTable, ConfirmSaveDialog } from './components';
 import { useAccountSync } from './hooks';
 
 function AddonMain({ ctx }: { ctx: AddonContext }) {
-  const [showSettings, setShowSettings] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
   const {
@@ -37,7 +36,7 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
     handleDraftChange,
     handleUndo,
     handleConfirm,
-  } = useAccountSync(ctx, showSettings);
+  } = useAccountSync(ctx, false);
 
   // Re-render the "X ago" label every minute
   const [, setTick] = useState(0);
@@ -45,24 +44,6 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
     const id = setInterval(() => setTick((t) => t + 1), 60_000);
     return () => clearInterval(id);
   }, []);
-
-  if (showSettings) {
-    return (
-      <div>
-        <div className="px-6 pt-6">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowSettings(false)}
-          >
-            <Icons.ChevronLeft className="h-4 w-4 mr-1" />
-            Back
-          </Button>
-        </div>
-        <SettingsPage ctx={ctx} />
-      </div>
-    );
-  }
 
   return (
     <div className="p-6">
@@ -100,7 +81,7 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
                     <Button
                       variant="outline"
                       size="icon"
-                      onClick={() => setShowSettings(true)}
+                      onClick={() => ctx.api.navigation.navigate('/addon/lunch-money/settings')}
                     >
                       <Icons.Settings className="h-4 w-4" />
                     </Button>
@@ -117,7 +98,7 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
 
           {!hasApiKey && (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <Button onClick={() => setShowSettings(true)}>Get started</Button>
+              <Button onClick={() => ctx.api.navigation.navigate('/addon/lunch-money/settings')}>Get started</Button>
               <p className="text-sm text-muted-foreground">
                 Add your Lunch Money access token to get started
               </p>
@@ -197,6 +178,12 @@ export default function enable(ctx: AddonContext) {
   ctx.router.add({
     path: '/addon/lunch-money',
     component: React.lazy(() => Promise.resolve({ default: Wrapper })),
+  });
+
+  const SettingsWrapper = () => <SettingsPage ctx={ctx} />;
+  ctx.router.add({
+    path: '/addon/lunch-money/settings',
+    component: React.lazy(() => Promise.resolve({ default: SettingsWrapper })),
   });
 
   ctx.onDisable(() => {
