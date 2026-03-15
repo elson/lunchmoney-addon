@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import type { AddonContext } from '@wealthfolio/addon-sdk';
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
   Button,
   Input,
   Label,
-  Icons,
+  Page,
+  PageHeader,
+  PageContent,
 } from '@wealthfolio/ui';
 import { API_KEY_SECRET } from '../lib/secrets';
 
@@ -36,23 +34,23 @@ export default function SettingsPage({ ctx }: { ctx: AddonContext }) {
   }
 
   return (
-    <div>
-      <div className="px-6 pt-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => ctx.api.navigation.navigate('/addon/lunch-money')}
-        >
-          <Icons.ChevronLeft className="h-4 w-4 mr-1" />
-          Back
-        </Button>
-      </div>
-    <div className="p-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Lunch Money Settings</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <Page>
+      <PageHeader
+        headingPrefix="Lunch Money Addon"
+        heading="Settings"
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => ctx.api.navigation.navigate('/addon/lunch-money')}
+          >
+            Close
+          </Button>
+        }
+      />
+
+      <PageContent withPadding>
+        <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="api-key">Lunch Money API Key</Label>
             <Input
@@ -77,9 +75,8 @@ export default function SettingsPage({ ctx }: { ctx: AddonContext }) {
               <span className="text-sm text-muted-foreground">Cleared.</span>
             )}
           </div>
-        </CardContent>
-      </Card>
-    </div>
-    </div>
+        </div>
+      </PageContent>
+    </Page>
   );
 }
