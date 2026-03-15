@@ -32,11 +32,16 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
     isSaving,
     isDirty,
     lastSynced,
+    isSyncingBalances,
+    balanceSyncStatus,
     handleRefresh,
     handleDraftChange,
     handleUndo,
     handleConfirm,
+    handleSyncBalances,
   } = useAccountSync(ctx, false);
+
+  const linkedCount = Object.values(savedMapping).filter((e) => e.type === "existing").length;
 
   // Re-render the "X ago" label every minute
   const [, setTick] = useState(0);
@@ -74,6 +79,28 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
                 </TooltipTrigger>
                 <TooltipContent>Refresh Lunch Money accounts</TooltipContent>
               </Tooltip>
+              {linkedCount > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSyncBalances}
+                      disabled={isSyncingBalances || loading}
+                    >
+                      {isSyncingBalances ? (
+                        <>
+                          <Icons.Loader className="mr-2 h-4 w-4 animate-spin" />
+                          Syncing…
+                        </>
+                      ) : (
+                        "Sync balances"
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Push Lunch Money balances to Wealthfolio</TooltipContent>
+                </Tooltip>
+              )}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -117,6 +144,8 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
               lmAccounts={lmAccounts}
               wfAccounts={wfAccounts}
               draft={draft}
+              savedMapping={savedMapping}
+              balanceSyncStatus={balanceSyncStatus}
               onDraftChange={handleDraftChange}
             />
 

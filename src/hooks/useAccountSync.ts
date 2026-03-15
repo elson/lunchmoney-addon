@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import type { AddonContext, Account } from "@wealthfolio/addon-sdk";
 import { fetchAllAccounts, type LunchmoneyAccount } from "../lib/lunchmoney";
-import { createWfAccountFromLm } from "../lib/wealthfolio";
+import { createWfAccountFromLm, saveSnapshot } from "../lib/wealthfolio";
 import { API_KEY_SECRET } from "../lib/secrets";
 import {
   loadMapping,
@@ -12,6 +12,8 @@ import {
   cleanMapping,
 } from "../lib/mapping";
 import type { AccountMapping, MappingEntry } from "../types";
+
+export type BalanceSyncStatus = "syncing" | "ok" | "error";
 
 interface AccountSyncState {
   lmAccounts: LunchmoneyAccount[] | null;
@@ -24,6 +26,8 @@ interface AccountSyncState {
   isSaving: boolean;
   isDirty: boolean;
   lastSynced: Date | null;
+  isSyncingBalances: boolean;
+  balanceSyncStatus: Record<number, BalanceSyncStatus>;
 }
 
 interface AccountSyncActions {
@@ -31,6 +35,7 @@ interface AccountSyncActions {
   handleDraftChange: (lmId: number, entry: MappingEntry) => void;
   handleConfirm: () => Promise<void>;
   handleUndo: () => void;
+  handleSyncBalances: () => Promise<void>;
 }
 
 export function useAccountSync(
@@ -47,6 +52,8 @@ export function useAccountSync(
   const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSynced, setLastSynced] = useState<Date | null>(() => loadLastSynced());
+  const [isSyncingBalances, setIsSyncingBalances] = useState(false);
+  const [balanceSyncStatus, setBalanceSyncStatus] = useState<Record<number, BalanceSyncStatus>>({});
 
   useEffect(() => {
     if (paused) return;
@@ -128,6 +135,33 @@ export function useAccountSync(
     }
   }
 
+  async function handleSyncBalances() {
+    if (!lmAccounts) return;
+    setIsSyncingBalances(true);
+    const today = new Date().toISOString().slice(0, 10);
+    const nextStatus: Record<number, BalanceSyncStatus> = {};
+
+    for (const [idStr, entry] of Object.entries(savedMapping)) {
+      if (entry.type !== "existing") continue;
+      const lmId = Number(idStr);
+      const lm = lmAccounts.find((a) => a.id === lmId);
+      if (!lm) continue;
+
+      nextStatus[lmId] = "syncing";
+      setBalanceSyncStatus({ ...nextStatus });
+
+      try {
+        await saveSnapshot(entry.wfAccountId, lm.currency, lm.balance, today);
+        nextStatus[lmId] = "ok";
+      } catch {
+        nextStatus[lmId] = "error";
+      }
+      setBalanceSyncStatus({ ...nextStatus });
+    }
+
+    setIsSyncingBalances(false);
+  }
+
   return {
     lmAccounts,
     wfAccounts,
@@ -139,9 +173,12 @@ export function useAccountSync(
     isSaving,
     isDirty: !mappingsEqual(draft, savedMapping),
     lastSynced,
+    isSyncingBalances,
+    balanceSyncStatus,
     handleRefresh,
     handleDraftChange,
     handleUndo,
     handleConfirm,
+    handleSyncBalances,
   };
 }
