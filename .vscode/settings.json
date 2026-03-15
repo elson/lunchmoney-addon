@@ -1,5 +1,7 @@
 {
   "js/ts.preferences.importModuleSpecifier": "relative",
   "editor.formatOnSave": true,
-  "editor.defaultFormatter": "esbenp.prettier-vscode"
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "prettier.requireConfig": true,
+  "prettier.useEditorConfig": false
 }
