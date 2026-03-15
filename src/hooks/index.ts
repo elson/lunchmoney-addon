@@ -1,1 +1,1 @@
-export { useAccountSync } from './useAccountSync';
+export { useAccountSync } from "./useAccountSync";

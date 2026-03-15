@@ -13,6 +13,7 @@ Create a plan for issue: $ARGUMENTS
 ### 1. Enter plan mode
 
 If you are not already, enter "plan mode".
+
 - You are only allowed to analyze the codebase, read files, and suggest plans.
 - You must not use any tools that modify files (like Edit or Write).
 - Your response should be a plan for how a developer could implement the issue.
@@ -22,7 +23,8 @@ If you are not already, enter "plan mode".
 
 If a number is provided as the argument:
 
-- Use `gh issue view` to get issue details (title, description, acceptance criteria), check linked issues/PRs, and review any comments.
+- Use `gh issue view` to get issue details (title, description, acceptance
+  criteria), check linked issues/PRs, and review any comments.
 
 If a textual description is provided instead:
 
@@ -38,7 +40,8 @@ If a textual description is provided instead:
 
 ### 4. Create and post the plan
 
-Assign yourself to the issue, then post a detailed plan as an issue comment using `gh issue comment`. Include:
+Assign yourself to the issue, then post a detailed plan as an issue comment
+using `gh issue comment`. Include:
 
 - What needs to be done.
 - Acceptance criteria.

@@ -1,36 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import type { AddonContext } from '@wealthfolio/addon-sdk';
-import {
-  Button,
-  Input,
-  Label,
-  Page,
-  PageHeader,
-  PageContent,
-} from '@wealthfolio/ui';
-import { API_KEY_SECRET } from '../lib/secrets';
+import React, { useState, useEffect } from "react";
+import type { AddonContext } from "@wealthfolio/addon-sdk";
+import { Button, Input, Label, Page, PageHeader, PageContent } from "@wealthfolio/ui";
+import { API_KEY_SECRET } from "../lib/secrets";
 
 export default function SettingsPage({ ctx }: { ctx: AddonContext }) {
-  const [apiKey, setApiKey] = useState('');
-  const [status, setStatus] = useState<'idle' | 'saved' | 'cleared'>('idle');
+  const [apiKey, setApiKey] = useState("");
+  const [status, setStatus] = useState<"idle" | "saved" | "cleared">("idle");
 
   useEffect(() => {
     ctx.api.secrets.get(API_KEY_SECRET).then((val) => {
       if (val) setApiKey(val);
     });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSave() {
     await ctx.api.secrets.set(API_KEY_SECRET, apiKey);
-    setStatus('saved');
-    setTimeout(() => setStatus('idle'), 2000);
+    setStatus("saved");
+    setTimeout(() => setStatus("idle"), 2000);
   }
 
   async function handleClear() {
     await ctx.api.secrets.delete(API_KEY_SECRET);
-    setApiKey('');
-    setStatus('cleared');
-    setTimeout(() => setStatus('idle'), 2000);
+    setApiKey("");
+    setStatus("cleared");
+    setTimeout(() => setStatus("idle"), 2000);
   }
 
   return (
@@ -42,7 +35,7 @@ export default function SettingsPage({ ctx }: { ctx: AddonContext }) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => ctx.api.navigation.navigate('/addon/lunch-money')}
+            onClick={() => ctx.api.navigation.navigate("/addon/lunch-money")}
           >
             Close
           </Button>
@@ -61,18 +54,16 @@ export default function SettingsPage({ ctx }: { ctx: AddonContext }) {
               placeholder="Enter your Lunch Money API key"
             />
           </div>
-          <div className="flex gap-2 items-center">
+          <div className="flex items-center gap-2">
             <Button onClick={handleSave} disabled={!apiKey}>
               Save
             </Button>
             <Button variant="outline" onClick={handleClear}>
               Clear
             </Button>
-            {status === 'saved' && (
-              <span className="text-sm text-green-600">Saved!</span>
-            )}
-            {status === 'cleared' && (
-              <span className="text-sm text-muted-foreground">Cleared.</span>
+            {status === "saved" && <span className="text-sm text-green-600">Saved!</span>}
+            {status === "cleared" && (
+              <span className="text-muted-foreground text-sm">Cleared.</span>
             )}
           </div>
         </div>

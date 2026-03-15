@@ -1,11 +1,11 @@
-import type { AddonContext } from '@wealthfolio/addon-sdk';
-import type { AccountMapping } from '../types';
+import type { AddonContext } from "@wealthfolio/addon-sdk";
+import type { AccountMapping } from "../types";
 
-const MAPPING_STORAGE_KEY = 'lunchmoney-addon:account-mapping';
-const LAST_SYNCED_STORAGE_KEY = 'lunchmoney-addon:last-synced';
+const MAPPING_STORAGE_KEY = "lunchmoney-addon:account-mapping";
+const LAST_SYNCED_STORAGE_KEY = "lunchmoney-addon:last-synced";
 
 // Legacy key — used only for one-time migration from secrets to localStorage
-const MAPPING_SECRET_KEY_LEGACY = 'account-mapping';
+const MAPPING_SECRET_KEY_LEGACY = "account-mapping";
 
 export function serializeMapping(mapping: AccountMapping): string {
   return JSON.stringify(mapping);
@@ -64,23 +64,18 @@ export function mappingsEqual(a: AccountMapping, b: AccountMapping): boolean {
     const be = b[Number(key)];
     if (!be) return false;
     if (ae.type !== be.type) return false;
-    if (ae.type === 'existing' && be.type === 'existing') {
+    if (ae.type === "existing" && be.type === "existing") {
       if (ae.wfAccountId !== be.wfAccountId) return false;
     }
   }
   return true;
 }
 
-export function cleanMapping(
-  mapping: AccountMapping,
-  validWfIds: Set<string>,
-): AccountMapping {
+export function cleanMapping(mapping: AccountMapping, validWfIds: Set<string>): AccountMapping {
   const cleaned: AccountMapping = {};
   for (const [key, entry] of Object.entries(mapping)) {
     cleaned[Number(key)] =
-      entry.type === 'existing' && !validWfIds.has(entry.wfAccountId)
-        ? { type: 'ignore' }
-        : entry;
+      entry.type === "existing" && !validWfIds.has(entry.wfAccountId) ? { type: "ignore" } : entry;
   }
   return cleaned;
 }
@@ -88,7 +83,7 @@ export function cleanMapping(
 export function claimedWfIds(draft: AccountMapping): Set<string> {
   const ids = new Set<string>();
   for (const entry of Object.values(draft)) {
-    if (entry.type === 'existing') ids.add(entry.wfAccountId);
+    if (entry.type === "existing") ids.add(entry.wfAccountId);
   }
   return ids;
 }

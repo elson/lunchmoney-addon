@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import type { AddonContext, Account } from '@wealthfolio/addon-sdk';
-import { fetchAllAccounts, type LunchmoneyAccount } from '../lib/lunchmoney';
-import { createWfAccountFromLm } from '../lib/wealthfolio';
-import { API_KEY_SECRET } from '../lib/secrets';
+import { useState, useEffect } from "react";
+import type { AddonContext, Account } from "@wealthfolio/addon-sdk";
+import { fetchAllAccounts, type LunchmoneyAccount } from "../lib/lunchmoney";
+import { createWfAccountFromLm } from "../lib/wealthfolio";
+import { API_KEY_SECRET } from "../lib/secrets";
 import {
   loadMapping,
   saveMapping,
@@ -10,8 +10,8 @@ import {
   saveLastSynced,
   mappingsEqual,
   cleanMapping,
-} from '../lib/mapping';
-import type { AccountMapping, MappingEntry } from '../types';
+} from "../lib/mapping";
+import type { AccountMapping, MappingEntry } from "../types";
 
 interface AccountSyncState {
   lmAccounts: LunchmoneyAccount[] | null;
@@ -60,7 +60,7 @@ export function useAccountSync(
         setWfAccounts(null);
       }
     });
-  }, [paused]);
+  }, [paused]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadAll(key: string) {
     setError(null);
@@ -82,7 +82,7 @@ export function useAccountSync(
       setSavedMapping(cleaned);
       setDraft(cleaned);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch accounts');
+      setError(err instanceof Error ? err.message : "Failed to fetch accounts");
     } finally {
       setLoading(false);
     }
@@ -106,13 +106,13 @@ export function useAccountSync(
       const finalDraft: AccountMapping = { ...draft };
 
       for (const [idStr, entry] of Object.entries(draft)) {
-        if (entry.type !== 'create') continue;
+        if (entry.type !== "create") continue;
         const lmId = Number(idStr);
         const lm = lmAccounts?.find((a) => a.id === lmId);
         if (!lm) continue;
 
         const created = await createWfAccountFromLm(ctx, lm);
-        finalDraft[lmId] = { type: 'existing', wfAccountId: String(created.id) };
+        finalDraft[lmId] = { type: "existing", wfAccountId: String(created.id) };
       }
 
       saveMapping(finalDraft);
@@ -122,7 +122,7 @@ export function useAccountSync(
       setSavedMapping(finalDraft);
       setDraft(finalDraft);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save');
+      setError(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setIsSaving(false);
     }

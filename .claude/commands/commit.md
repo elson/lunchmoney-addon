@@ -21,6 +21,7 @@ allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git commit:*)
 2. Stage relevant files if needed (ask user if unclear what to stage)
 
 3. Create the commit with this format:
+
    ```
    git commit -m "$(cat <<'EOF'
    <commit message here>
@@ -35,6 +36,7 @@ allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git commit:*)
 4. Run `git status` after commit to verify success
 
 Important:
+
 - Do NOT commit files that may contain secrets (.env, credentials.json, etc.)
 - Do NOT push unless explicitly asked
 - Do NOT use --amend unless explicitly requested and safe to do so

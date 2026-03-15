@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { formatDistanceToNow } from 'date-fns';
-import type { AddonContext } from '@wealthfolio/addon-sdk';
+/* eslint-disable react-refresh/only-export-components */
+import React, { useState, useEffect } from "react";
+import { formatDistanceToNow } from "date-fns";
+import type { AddonContext } from "@wealthfolio/addon-sdk";
 import {
   Icons,
   Button,
@@ -11,10 +12,10 @@ import {
   Page,
   PageHeader,
   PageContent,
-} from '@wealthfolio/ui';
-import { SettingsPage } from './pages';
-import { AccountLinkTable, ConfirmSaveDialog } from './components';
-import { useAccountSync } from './hooks';
+} from "@wealthfolio/ui";
+import { SettingsPage } from "./pages";
+import { AccountLinkTable, ConfirmSaveDialog } from "./components";
+import { useAccountSync } from "./hooks";
 
 function AddonMain({ ctx }: { ctx: AddonContext }) {
   const [showConfirm, setShowConfirm] = useState(false);
@@ -51,7 +52,7 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
           <TooltipProvider>
             <>
               {lastSynced && (
-                <span className="text-xs text-muted-foreground mr-1">
+                <span className="text-muted-foreground mr-1 text-xs">
                   Last synced {formatDistanceToNow(lastSynced, { addSuffix: true })}
                 </span>
               )}
@@ -77,7 +78,7 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => ctx.api.navigation.navigate('/addon/lunch-money/settings')}
+                    onClick={() => ctx.api.navigation.navigate("/addon/lunch-money/settings")}
                   >
                     <Icons.Settings className="h-4 w-4" />
                   </Button>
@@ -90,19 +91,21 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
       />
 
       <PageContent withPadding>
-        {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
+        {error && <p className="text-destructive mb-4 text-sm">{error}</p>}
 
         {!hasApiKey && (
-          <div className="flex flex-col items-center justify-center py-12 gap-3">
-            <Button onClick={() => ctx.api.navigation.navigate('/addon/lunch-money/settings')}>Get started</Button>
-            <p className="text-sm text-muted-foreground">
+          <div className="flex flex-col items-center justify-center gap-3 py-12">
+            <Button onClick={() => ctx.api.navigation.navigate("/addon/lunch-money/settings")}>
+              Get started
+            </Button>
+            <p className="text-muted-foreground text-sm">
               Add your Lunch Money access token to get started
             </p>
           </div>
         )}
 
         {hasApiKey && lmAccounts?.length === 0 && (
-          <p className="text-sm text-muted-foreground">No accounts found.</p>
+          <p className="text-muted-foreground text-sm">No accounts found.</p>
         )}
 
         {lmAccounts && lmAccounts.length > 0 && wfAccounts && (
@@ -115,18 +118,18 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
             />
 
             {isDirty && (
-              <div className="mt-4 flex gap-2 justify-end">
+              <div className="mt-4 flex justify-end gap-2">
                 <Button variant="outline" onClick={handleUndo} disabled={isSaving}>
                   Undo
                 </Button>
                 <Button onClick={() => setShowConfirm(true)} disabled={isSaving}>
                   {isSaving ? (
                     <>
-                      <Icons.Loader className="h-4 w-4 mr-2 animate-spin" />
+                      <Icons.Loader className="mr-2 h-4 w-4 animate-spin" />
                       Saving…
                     </>
                   ) : (
-                    'Save'
+                    "Save"
                   )}
                 </Button>
               </div>
@@ -153,30 +156,30 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
 
 export default function enable(ctx: AddonContext) {
   const sidebarItem = ctx.sidebar.addItem({
-    id: 'lunch-money',
-    label: 'Lunch Money',
+    id: "lunch-money",
+    label: "Lunch Money",
     icon: <Icons.Blocks className="h-5 w-5" />,
-    route: '/addon/lunch-money',
+    route: "/addon/lunch-money",
     order: 100,
   });
 
   const Wrapper = () => <AddonMain ctx={ctx} />;
   ctx.router.add({
-    path: '/addon/lunch-money',
+    path: "/addon/lunch-money",
     component: React.lazy(() => Promise.resolve({ default: Wrapper })),
   });
 
   const SettingsWrapper = () => <SettingsPage ctx={ctx} />;
   ctx.router.add({
-    path: '/addon/lunch-money/settings',
+    path: "/addon/lunch-money/settings",
     component: React.lazy(() => Promise.resolve({ default: SettingsWrapper })),
   });
 
   ctx.onDisable(() => {
     try {
       sidebarItem.remove();
-    } catch (err) {
-      ctx.api.logger.error('Failed to remove sidebar item:');
+    } catch {
+      ctx.api.logger.error("Failed to remove sidebar item:");
     }
   });
 }

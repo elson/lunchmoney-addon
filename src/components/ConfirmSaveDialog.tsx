@@ -1,5 +1,5 @@
-import React from 'react';
-import type { Account } from '@wealthfolio/addon-sdk';
+import React from "react";
+import type { Account } from "@wealthfolio/addon-sdk";
 import {
   Button,
   Dialog,
@@ -7,9 +7,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@wealthfolio/ui';
-import type { LunchmoneyAccount } from '../lib/lunchmoney';
-import type { AccountMapping } from '../types';
+} from "@wealthfolio/ui";
+import type { LunchmoneyAccount } from "../lib/lunchmoney";
+import type { AccountMapping } from "../types";
 
 interface ConfirmSaveDialogProps {
   open: boolean;
@@ -50,16 +50,15 @@ export function ConfirmSaveDialog({
     if (!lm) continue;
     const saved = savedMapping[lmId];
 
-    if (entry.type === 'create') {
-      const wasLinkedTo =
-        saved?.type === 'existing' ? wfById[saved.wfAccountId] : undefined;
+    if (entry.type === "create") {
+      const wasLinkedTo = saved?.type === "existing" ? wfById[saved.wfAccountId] : undefined;
       toCreate.push({ lm, wasLinkedTo });
-    } else if (entry.type === 'existing') {
+    } else if (entry.type === "existing") {
       const wf = wfById[entry.wfAccountId];
       if (!wf) continue;
-      if (!saved || saved.type === 'ignore') {
+      if (!saved || saved.type === "ignore") {
         toLink.push({ lm, wf });
-      } else if (saved.type === 'existing') {
+      } else if (saved.type === "existing") {
         if (saved.wfAccountId === entry.wfAccountId) {
           unchanged.push({ lm, wf });
         } else {
@@ -77,11 +76,11 @@ export function ConfirmSaveDialog({
 
   // Find existing links that are being removed (saved=existing, draft=ignore or absent)
   for (const [idStr, saved] of Object.entries(savedMapping)) {
-    if (saved.type !== 'existing') continue;
+    if (saved.type !== "existing") continue;
     const lmId = Number(idStr);
     const draftEntry = draft[lmId];
     // 'create' transitions are already captured above with wasLinkedTo
-    if (!draftEntry || draftEntry.type === 'ignore') {
+    if (!draftEntry || draftEntry.type === "ignore") {
       const lm = lmById[lmId];
       const wf = wfById[saved.wfAccountId];
       if (lm && wf) toUnlink.push({ lm, wf });
@@ -89,10 +88,7 @@ export function ConfirmSaveDialog({
   }
 
   const hasChanges =
-    toCreate.length > 0 ||
-    toLink.length > 0 ||
-    toRelink.length > 0 ||
-    toUnlink.length > 0;
+    toCreate.length > 0 || toLink.length > 0 || toRelink.length > 0 || toUnlink.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onCancel()}>
@@ -104,7 +100,7 @@ export function ConfirmSaveDialog({
         {toCreate.length > 0 && (
           <div className="space-y-1">
             <p className="text-sm font-medium">Accounts to create:</p>
-            <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+            <ul className="text-muted-foreground list-inside list-disc space-y-1 text-sm">
               {toCreate.map(({ lm, wasLinkedTo }) => (
                 <li key={lm.id}>
                   {lmName(lm)}
@@ -123,7 +119,7 @@ export function ConfirmSaveDialog({
         {toLink.length > 0 && (
           <div className="space-y-1">
             <p className="text-sm font-medium">Accounts to link:</p>
-            <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+            <ul className="text-muted-foreground list-inside list-disc space-y-1 text-sm">
               {toLink.map(({ lm, wf }) => (
                 <li key={lm.id}>
                   {lmName(lm)} → {wf.name}
@@ -136,7 +132,7 @@ export function ConfirmSaveDialog({
         {toRelink.length > 0 && (
           <div className="space-y-1">
             <p className="text-sm font-medium">Accounts to relink:</p>
-            <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+            <ul className="text-muted-foreground list-inside list-disc space-y-1 text-sm">
               {toRelink.map(({ lm, from, to }) => (
                 <li key={lm.id}>
                   {lmName(lm)}: {from.name} → {to.name}
@@ -149,7 +145,7 @@ export function ConfirmSaveDialog({
         {toUnlink.length > 0 && (
           <div className="space-y-1">
             <p className="text-sm font-medium">Accounts to unlink:</p>
-            <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+            <ul className="text-muted-foreground list-inside list-disc space-y-1 text-sm">
               {toUnlink.map(({ lm, wf }) => (
                 <li key={lm.id}>
                   {lmName(lm)} — removes link to {wf.name}
@@ -162,7 +158,7 @@ export function ConfirmSaveDialog({
         {unchanged.length > 0 && (
           <div className="space-y-1">
             <p className="text-sm font-medium">Unchanged:</p>
-            <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+            <ul className="text-muted-foreground list-inside list-disc space-y-1 text-sm">
               {unchanged.map(({ lm, wf }) => (
                 <li key={lm.id}>
                   {lmName(lm)} → {wf.name}
@@ -173,7 +169,7 @@ export function ConfirmSaveDialog({
         )}
 
         {!hasChanges && unchanged.length === 0 && (
-          <p className="text-sm text-muted-foreground">No changes to apply.</p>
+          <p className="text-muted-foreground text-sm">No changes to apply.</p>
         )}
 
         <DialogFooter>

@@ -1,7 +1,9 @@
 ---
 name: gh-issue-implement
 description: Work on a GitHub issue end-to-end
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(gh:*), Bash(npm:*), Bash(cargo:*), Bash(node:*)
+allowed-tools:
+  Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(gh:*), Bash(npm:*),
+  Bash(cargo:*), Bash(node:*)
 ---
 
 # Issue Workflow
@@ -13,12 +15,14 @@ Work on issue: $ARGUMENTS
 ### 1. Read the issue
 
 Use `gh issue view` to:
+
 - Get issue details (title, description, acceptance criteria)
 - Check linked issues/PRs
 - Review any comments or attachments
 - Check if an implementation plan has already been added in the comments
 
 Assign yourself to the issue, then summarize:
+
 - What needs to be done
 - Acceptance criteria
 - Any blockers or dependencies
@@ -26,6 +30,7 @@ Assign yourself to the issue, then summarize:
 ### 2. Explore the codebase
 
 Before coding:
+
 - Reference the existing plan if available
 - Search for related code
 - Understand the current implementation
@@ -44,7 +49,9 @@ git checkout -b {change-type}/{issue-id}-{brief-description}
 - Make incremental commits
 - Conduct a technical debt and code simplification review
 
-> **If you discover an unrelated bug:** create a new issue, link it to the current one, note it in the PR description, and continue with the original task.
+> **If you discover an unrelated bug:** create a new issue, link it to the
+> current one, note it in the PR description, and continue with the original
+> task.
 
 ### 5. Run tests and checks
 

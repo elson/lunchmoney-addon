@@ -1,2 +1,2 @@
-export { AccountLinkTable } from './AccountLinkTable';
-export { ConfirmSaveDialog } from './ConfirmSaveDialog';
+export { AccountLinkTable } from "./AccountLinkTable";
+export { ConfirmSaveDialog } from "./ConfirmSaveDialog";
