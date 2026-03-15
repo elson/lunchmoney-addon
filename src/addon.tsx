@@ -12,6 +12,7 @@ import {
   Page,
   PageHeader,
   PageContent,
+  EmptyPlaceholder,
 } from "@wealthfolio/ui";
 import { SettingsPage } from "./pages";
 import { AccountLinkTable, ConfirmSaveDialog } from "./components";
@@ -94,14 +95,16 @@ function AddonMain({ ctx }: { ctx: AddonContext }) {
         {error && <p className="text-destructive mb-4 text-sm">{error}</p>}
 
         {!hasApiKey && (
-          <div className="flex flex-col items-center justify-center gap-3 py-12">
+          <EmptyPlaceholder>
+            <EmptyPlaceholder.Icon name="Settings" />
+            <EmptyPlaceholder.Title>No API key set</EmptyPlaceholder.Title>
+            <EmptyPlaceholder.Description>
+              Add your Lunch Money access token to get started
+            </EmptyPlaceholder.Description>
             <Button onClick={() => ctx.api.navigation.navigate("/addon/lunch-money/settings")}>
               Get started
             </Button>
-            <p className="text-muted-foreground text-sm">
-              Add your Lunch Money access token to get started
-            </p>
-          </div>
+          </EmptyPlaceholder>
         )}
 
         {hasApiKey && lmAccounts?.length === 0 && (
