@@ -142,7 +142,7 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
         )}
 
         {lmAccounts && lmAccounts.length > 0 && wfAccounts && (
-          <div>
+          <>
             <div className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="relative flex-1 sm:max-w-sm">
                 <Icons.Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
@@ -164,12 +164,6 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
                   </button>
                 )}
               </div>
-              {/* <Input
-                  className="h-8 max-w-sm"
-                  placeholder="Search accounts…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                /> */}
               <ToggleGroup
                 type="single"
                 value={filterTab}
@@ -178,24 +172,15 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
                 }}
                 className="bg-muted ml-auto h-9 rounded-md p-1"
               >
-                <ToggleGroupItem
-                  value="all"
-                  className="data-[state=on]:bg-background h-7 rounded px-3 text-xs"
-                >
-                  All
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="linked"
-                  className="data-[state=on]:bg-background h-7 rounded px-3 text-xs"
-                >
-                  Linked
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="skipped"
-                  className="data-[state=on]:bg-background h-7 rounded px-3 text-xs"
-                >
-                  Skipped
-                </ToggleGroupItem>
+                {(["all", "linked", "skipped"] as const).map((tab) => (
+                  <ToggleGroupItem
+                    key={tab}
+                    value={tab}
+                    className="data-[state=on]:bg-background h-7 rounded px-3 text-xs capitalize"
+                  >
+                    {tab}
+                  </ToggleGroupItem>
+                ))}
               </ToggleGroup>
             </div>
 
@@ -246,7 +231,7 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
               }}
               onCancel={() => setShowConfirm(false)}
             />
-          </div>
+          </>
         )}
       </PageContent>
     </Page>
