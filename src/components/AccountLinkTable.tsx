@@ -27,7 +27,10 @@ function LmAccountInfo({ acc, isLinked }: LmAccountInfoProps) {
   return (
     <div className="grid min-w-0 gap-1">
       <p className={cn("truncate font-semibold", !isLinked && "text-muted-foreground")}>
-        {acc.name}
+        {acc.display_name ?? acc.name}
+        {acc.display_name && (
+          <span className="text-muted-foreground ml-1.5 text-xs font-normal">({acc.name})</span>
+        )}
       </p>
       <p className="text-muted-foreground flex items-center gap-1.5 text-sm capitalize">{meta}</p>
     </div>
@@ -193,13 +196,11 @@ export function AccountLinkTable({
   wfCashBalances,
   onDraftChange,
 }: AccountLinkTableProps) {
-  const grouped = lmAccounts
-    .filter((a) => a.type === "cash")
-    .reduce<Record<string, LunchmoneyAccount[]>>((acc, a) => {
-      const key = a.institution_name || "Other";
-      (acc[key] ??= []).push(a);
-      return acc;
-    }, {});
+  const grouped = lmAccounts.reduce<Record<string, LunchmoneyAccount[]>>((acc, a) => {
+    const key = a.institution_name || "Other";
+    (acc[key] ??= []).push(a);
+    return acc;
+  }, {});
 
   return (
     <div className="mt-4 space-y-6">

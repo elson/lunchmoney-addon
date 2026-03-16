@@ -23,9 +23,11 @@ async function fetchJson<T>(path: string, apiKey: string): Promise<T> {
 }
 
 export async function fetchAllAccounts(apiKey: string): Promise<LunchmoneyAccount[]> {
-  const [manualRes, plaidRes] = await Promise.all([
+  const [manualResult, plaidResult] = await Promise.allSettled([
     fetchJson<{ manual_accounts: LunchmoneyAccount[] }>("/manual_accounts", apiKey),
     fetchJson<{ plaid_accounts: LunchmoneyAccount[] }>("/plaid_accounts", apiKey),
   ]);
-  return [...manualRes.manual_accounts, ...plaidRes.plaid_accounts];
+  const manual = manualResult.status === "fulfilled" ? manualResult.value.manual_accounts : [];
+  const plaid = plaidResult.status === "fulfilled" ? plaidResult.value.plaid_accounts : [];
+  return [...manual, ...plaid];
 }
