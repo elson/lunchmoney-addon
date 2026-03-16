@@ -48,7 +48,7 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
   return (
     <Page>
       <PageHeader
-        heading="Lunch Money Addon"
+        heading="Lunch Money Add-on"
         text="Synchronise your Lunch Money cash balances to Wealthfolio"
         actions={
           <>

@@ -1,4 +1,4 @@
-# Wealthfolio Lunch Money Addon
+# Wealthfolio Lunch Money Add-on
 
 Synchronise Lunch Money accounts to Wealthfolio holdings
 
