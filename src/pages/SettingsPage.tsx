@@ -29,8 +29,8 @@ export default function SettingsPage({ ctx }: { ctx: AddonContext }) {
   return (
     <Page>
       <PageHeader
-        heading="Lunch Money Add-on"
-        text="Synchronise your Lunch Money cash balances to Wealthfolio"
+        heading="Lunch Money Settings"
+        text="Add your Lunch Money access token"
         actions={
           <Button
             variant="outline"
@@ -45,7 +45,7 @@ export default function SettingsPage({ ctx }: { ctx: AddonContext }) {
       <PageContent withPadding>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="api-key">Lunch Money API Key</Label>
+            <Label htmlFor="api-key">Lunch Money access token</Label>
             <Input
               id="api-key"
               type="password"

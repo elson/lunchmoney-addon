@@ -73,8 +73,8 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
   return (
     <Page>
       <PageHeader
-        heading="Lunch Money Add-on"
-        text="Synchronise your Lunch Money cash balances to Wealthfolio"
+        heading="Lunch Money Accounts"
+        text="Import your Lunch Money balances as Wealthfolio cash snapshots"
         actions={
           <>
             {lastSynced && linkedCount > 0 && (
@@ -124,7 +124,9 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
       <PageContent withPadding>
         {error && <p className="text-destructive mb-4 text-sm">{error}</p>}
 
-        {!hasApiKey && (
+        {hasApiKey === null && loading && <p className="text-muted-foreground text-sm">Loading…</p>}
+
+        {hasApiKey === false && (
           <EmptyPlaceholder>
             <EmptyPlaceholder.Icon name="Settings" />
             <EmptyPlaceholder.Title>No API key set</EmptyPlaceholder.Title>
