@@ -1,6 +1,6 @@
 {
   "name": "wealthfolio-lunchmoney-addon-addon",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Synchronise Lunch Money accounts to Wealthfolio holdings",
   "type": "module",
   "main": "dist/addon.js",
