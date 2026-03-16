@@ -71,10 +71,16 @@ export function mappingsEqual(a: AccountMapping, b: AccountMapping): boolean {
   return true;
 }
 
-export function cleanMapping(mapping: AccountMapping, validWfIds: Set<string>): AccountMapping {
+export function cleanMapping(
+  mapping: AccountMapping,
+  validWfIds: Set<string>,
+  validLmIds: Set<number>,
+): AccountMapping {
   const cleaned: AccountMapping = {};
   for (const [key, entry] of Object.entries(mapping)) {
-    cleaned[Number(key)] =
+    const lmId = Number(key);
+    if (!validLmIds.has(lmId)) continue; // LM account deleted — drop entry entirely
+    cleaned[lmId] =
       entry.type === "existing" && !validWfIds.has(entry.wfAccountId) ? { type: "ignore" } : entry;
   }
   return cleaned;

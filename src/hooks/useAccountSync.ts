@@ -79,7 +79,14 @@ export function useAccountSync(
       ]);
 
       const wfIdSet = new Set(wfData.map((a) => String(a.id)));
-      const cleaned = cleanMapping(mapping, wfIdSet);
+      const lmIdSet = new Set(lmData.map((a) => a.id));
+      const cleaned = cleanMapping(mapping, wfIdSet, lmIdSet);
+
+      // Persist immediately if stale entries were removed, so they don't
+      // re-lock WF accounts on the next load before a Save is triggered.
+      if (Object.keys(cleaned).length !== Object.keys(mapping).length) {
+        saveMapping(cleaned);
+      }
 
       setLmAccounts(lmData);
       setWfAccounts(wfData);
