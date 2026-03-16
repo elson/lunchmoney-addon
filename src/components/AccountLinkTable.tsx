@@ -42,9 +42,10 @@ function LmAccountInfo({ acc, isLinked }: LmAccountInfoProps) {
 interface WfAccountInfoProps {
   entry: MappingEntry | undefined;
   wfAccount: Account | undefined;
+  onNavigate: (path: string) => void;
 }
 
-function WfAccountInfo({ entry, wfAccount }: WfAccountInfoProps) {
+function WfAccountInfo({ entry, wfAccount, onNavigate }: WfAccountInfoProps) {
   const resolved = entry ?? { type: "ignore" as const };
 
   if (resolved.type === "ignore") {
@@ -78,7 +79,19 @@ function WfAccountInfo({ entry, wfAccount }: WfAccountInfoProps) {
 
   return (
     <div className="grid min-w-0 gap-1">
-      <p className="truncate font-semibold">{wfAccount.name}</p>
+      <a
+        className={cn(
+          "truncate font-semibold hover:underline",
+          !wfAccount.isActive && "text-muted-foreground",
+        )}
+        href={`/accounts/${wfAccount.id}`}
+        onClick={(e) => {
+          e.preventDefault();
+          onNavigate(`/accounts/${wfAccount.id}`);
+        }}
+      >
+        {wfAccount.name}
+      </a>
       <p className="text-muted-foreground flex items-center gap-1.5 text-sm">{meta}</p>
     </div>
   );
@@ -191,6 +204,7 @@ interface AccountLinkTableProps {
   savedMapping: AccountMapping;
   wfCashBalances: Record<string, number>;
   onDraftChange: (lmId: number, entry: MappingEntry) => void;
+  onNavigate: (path: string) => void;
 }
 
 export function AccountLinkTable({
@@ -200,6 +214,7 @@ export function AccountLinkTable({
   savedMapping,
   wfCashBalances,
   onDraftChange,
+  onNavigate,
 }: AccountLinkTableProps) {
   const grouped = lmAccounts.reduce<Record<string, LunchmoneyAccount[]>>((acc, a) => {
     const key = a.institution_name || "Other";
@@ -249,7 +264,7 @@ export function AccountLinkTable({
 
                   {/* WF account details */}
                   <div className="min-w-0 flex-1">
-                    <WfAccountInfo entry={entry} wfAccount={wfAccount} />
+                    <WfAccountInfo entry={entry} wfAccount={wfAccount} onNavigate={onNavigate} />
                   </div>
 
                   {/* Menu button to change WF account */}

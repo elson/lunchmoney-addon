@@ -200,6 +200,7 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
                 savedMapping={savedMapping}
                 wfCashBalances={wfCashBalances}
                 onDraftChange={handleDraftChange}
+                onNavigate={(path) => ctx.api.navigation.navigate(path)}
               />
             )}
 
