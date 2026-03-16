@@ -3,7 +3,9 @@ name: CI
 on:
   push:
     branches: [master]
+    paths: [src/**]
   pull_request:
+    paths: [src/**]
 
 jobs:
   check:
