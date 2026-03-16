@@ -1,11 +1,12 @@
 {
-  "name": "wealthfolio-lunchmoney-addon-addon",
+  "name": "wealthfolio-lunchmoney-addon",
   "version": "0.1.1",
-  "description": "Synchronise Lunch Money accounts to Wealthfolio holdings",
+  "description": "Synchronise your Lunch Money cash balances to Wealthfolio",
   "type": "module",
   "main": "dist/addon.js",
   "keywords": [
     "wealthfolio",
+    "lunchmoney",
     "addon"
   ],
   "license": "MIT",
