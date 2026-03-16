@@ -13,8 +13,6 @@ import {
 } from "../lib/mapping";
 import type { AccountMapping, MappingEntry } from "../types";
 
-export type BalanceSyncStatus = "syncing" | "ok" | "error";
-
 interface AccountSyncState {
   lmAccounts: LunchmoneyAccount[] | null;
   wfAccounts: Account[] | null;
@@ -27,7 +25,8 @@ interface AccountSyncState {
   isDirty: boolean;
   lastSynced: Date | null;
   isSyncingBalances: boolean;
-  balanceSyncStatus: Record<number, BalanceSyncStatus>;
+  /** wfAccountId → cashBalance from latest portfolio valuation */
+  wfCashBalances: Record<string, number>;
 }
 
 interface AccountSyncActions {
@@ -53,7 +52,7 @@ export function useAccountSync(
   const [isSaving, setIsSaving] = useState(false);
   const [lastSynced, setLastSynced] = useState<Date | null>(() => loadLastSynced());
   const [isSyncingBalances, setIsSyncingBalances] = useState(false);
-  const [balanceSyncStatus, setBalanceSyncStatus] = useState<Record<number, BalanceSyncStatus>>({});
+  const [wfCashBalances, setWfCashBalances] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (paused) return;
@@ -82,16 +81,35 @@ export function useAccountSync(
       const wfIdSet = new Set(wfData.map((a) => String(a.id)));
       const cleaned = cleanMapping(mapping, wfIdSet);
 
-      saveLastSynced();
-      setLastSynced(new Date());
       setLmAccounts(lmData);
       setWfAccounts(wfData);
       setSavedMapping(cleaned);
       setDraft(cleaned);
+      await loadValuations(cleaned);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch accounts");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadValuations(mapping: AccountMapping) {
+    const wfIds = Object.values(mapping)
+      .filter((e): e is { type: "existing"; wfAccountId: string } => e.type === "existing")
+      .map((e) => e.wfAccountId);
+    if (wfIds.length === 0) {
+      setWfCashBalances({});
+      return;
+    }
+    try {
+      const valuations = await ctx.api.portfolio.getLatestValuations(wfIds);
+      const balances: Record<string, number> = {};
+      for (const v of valuations) {
+        balances[v.accountId] = v.cashBalance;
+      }
+      setWfCashBalances(balances);
+    } catch {
+      // non-fatal: balance display stays empty
     }
   }
 
@@ -139,7 +157,6 @@ export function useAccountSync(
     if (!lmAccounts) return;
     setIsSyncingBalances(true);
     const today = new Date().toISOString().slice(0, 10);
-    const nextStatus: Record<number, BalanceSyncStatus> = {};
     const errors: string[] = [];
 
     for (const [idStr, entry] of Object.entries(savedMapping)) {
@@ -148,24 +165,22 @@ export function useAccountSync(
       const lm = lmAccounts.find((a) => a.id === lmId);
       if (!lm) continue;
 
-      nextStatus[lmId] = "syncing";
-      setBalanceSyncStatus({ ...nextStatus });
-
       try {
         await saveSnapshot(ctx, entry.wfAccountId, lm.currency, lm.balance, today);
-        nextStatus[lmId] = "ok";
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         ctx.api.logger.error(`Balance sync failed for LM account ${lmId}: ${msg}`);
-        nextStatus[lmId] = "error";
         errors.push(msg);
       }
-      setBalanceSyncStatus({ ...nextStatus });
     }
 
     setIsSyncingBalances(false);
     if (errors.length > 0) {
       setError(errors.join(" | "));
+    } else {
+      saveLastSynced();
+      setLastSynced(new Date());
+      await loadValuations(savedMapping);
     }
   }
 
@@ -181,7 +196,7 @@ export function useAccountSync(
     isDirty: !mappingsEqual(draft, savedMapping),
     lastSynced,
     isSyncingBalances,
-    balanceSyncStatus,
+    wfCashBalances,
     handleRefresh,
     handleDraftChange,
     handleUndo,

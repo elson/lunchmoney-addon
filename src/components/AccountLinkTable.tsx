@@ -7,57 +7,11 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  cn,
 } from "@wealthfolio/ui";
 import type { LunchmoneyAccount } from "../lib/lunchmoney";
 import type { AccountMapping, MappingEntry } from "../types";
 import { claimedWfIds } from "../lib/mapping";
-import type { BalanceSyncStatus } from "../hooks/useAccountSync";
-
-function SyncStatusIcon({ status }: { status: BalanceSyncStatus | undefined }) {
-  if (status === "syncing")
-    return (
-      <svg
-        className="text-muted-foreground h-4 w-4 animate-spin"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-      >
-        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-      </svg>
-    );
-  if (status === "ok")
-    return (
-      <svg
-        className="h-4 w-4 text-green-500"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <polyline points="20 6 9 17 4 12" />
-      </svg>
-    );
-  if (status === "error")
-    return (
-      <svg
-        className="text-destructive h-4 w-4"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <circle cx="12" cy="12" r="10" />
-        <line x1="12" y1="8" x2="12" y2="12" />
-        <line x1="12" y1="16" x2="12.01" y2="16" />
-      </svg>
-    );
-  return null;
-}
 
 function entryToSelectValue(entry: MappingEntry): string {
   if (entry.type === "ignore") return "ignore";
@@ -79,7 +33,7 @@ interface AccountLinkTableProps {
   wfAccounts: Account[];
   draft: AccountMapping;
   savedMapping: AccountMapping;
-  balanceSyncStatus: Record<number, BalanceSyncStatus>;
+  wfCashBalances: Record<string, number>;
   onDraftChange: (lmId: number, entry: MappingEntry) => void;
 }
 
@@ -127,7 +81,7 @@ export function AccountLinkTable({
   wfAccounts,
   draft,
   savedMapping,
-  balanceSyncStatus,
+  wfCashBalances,
   onDraftChange,
 }: AccountLinkTableProps) {
   const grouped = lmAccounts
@@ -157,13 +111,22 @@ export function AccountLinkTable({
                 .filter(Boolean)
                 .join(" · ");
 
+              const savedEntry = savedMapping[acc.id];
+              const lmBalance = parseFloat(acc.balance);
+              const wfBalance =
+                savedEntry?.type === "existing" && savedEntry.wfAccountId in wfCashBalances
+                  ? wfCashBalances[savedEntry.wfAccountId]
+                  : null;
+              const balancesMatch = wfBalance !== null && Math.abs(wfBalance - lmBalance) < 0.005;
+              const diff = wfBalance !== null ? wfBalance - lmBalance : null;
+
               return (
                 <div
                   key={acc.id}
                   className={
                     isLinked
-                      ? "flex items-center gap-3 bg-green-50 px-4 py-3 dark:bg-green-950/20"
-                      : "flex items-center gap-3 border-dashed px-4 py-3"
+                      ? "flex items-center gap-3 bg-green-50 p-4 dark:bg-green-950/20"
+                      : "flex items-center gap-3 border-dashed p-4"
                   }
                 >
                   {isLinked ? (
@@ -172,9 +135,16 @@ export function AccountLinkTable({
                     <Icons.Circle className="text-muted-foreground/40 h-5 w-5 shrink-0" />
                   )}
 
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{acc.display_name || acc.name}</p>
-                    <p className="text-muted-foreground truncate text-xs capitalize">
+                  <div className="grid min-w-0 flex-1 gap-1">
+                    <p
+                      className={cn(
+                        "truncate text-base font-semibold",
+                        !isLinked && "text-muted-foreground",
+                      )}
+                    >
+                      {acc.name}
+                    </p>
+                    <p className="text-muted-foreground flex items-center gap-1.5 text-sm capitalize">
                       {meta} · {balance}
                     </p>
                   </div>
@@ -188,9 +158,35 @@ export function AccountLinkTable({
                     onDraftChange={onDraftChange}
                   />
 
-                  <div className="w-5 shrink-0">
-                    {savedMapping[acc.id]?.type === "existing" && (
-                      <SyncStatusIcon status={balanceSyncStatus[acc.id]} />
+                  <div className="ml-auto flex items-center gap-2">
+                    {wfBalance !== null && (
+                      <div className="flex items-center gap-1.5">
+                        {!balancesMatch && (
+                          <Icons.AlertTriangle className="h-4 w-4 shrink-0 text-red-500" />
+                        )}
+                        <div className="grid text-right">
+                          <span
+                            className={cn(
+                              "text-sm font-medium tabular-nums",
+                              balancesMatch ? "text-green-600" : "text-foreground",
+                            )}
+                          >
+                            {wfBalance.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </span>
+                          {!balancesMatch && diff !== null && (
+                            <span className="text-xs text-red-500 tabular-nums">
+                              {diff > 0 ? "+" : ""}
+                              {diff.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
