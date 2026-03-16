@@ -14,6 +14,11 @@
       "purpose": "Display and link Lunch Money accounts to Wealthfolio accounts"
     },
     {
+      "category": "snapshots",
+      "functions": ["save"],
+      "purpose": "Sync Lunch Money account balances as point-in-time snapshots"
+    },
+    {
       "category": "secrets",
       "functions": ["get", "set", "delete"],
       "purpose": "Store Lunch Money API key securely"

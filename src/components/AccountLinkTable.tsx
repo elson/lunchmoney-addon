@@ -38,6 +38,53 @@ function LinkOffIcon({ className }: { className?: string }) {
 import type { LunchmoneyAccount } from "../lib/lunchmoney";
 import type { AccountMapping, MappingEntry } from "../types";
 import { claimedWfIds } from "../lib/mapping";
+import type { BalanceSyncStatus } from "../hooks/useAccountSync";
+
+function SyncStatusIcon({ status }: { status: BalanceSyncStatus | undefined }) {
+  if (status === "syncing")
+    return (
+      <svg
+        className="text-muted-foreground h-4 w-4 animate-spin"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+      </svg>
+    );
+  if (status === "ok")
+    return (
+      <svg
+        className="h-4 w-4 text-green-500"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+    );
+  if (status === "error")
+    return (
+      <svg
+        className="text-destructive h-4 w-4"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+      </svg>
+    );
+  return null;
+}
 
 function entryToSelectValue(entry: MappingEntry): string {
   if (entry.type === "ignore") return "ignore";
@@ -58,6 +105,8 @@ interface AccountLinkTableProps {
   lmAccounts: LunchmoneyAccount[];
   wfAccounts: Account[];
   draft: AccountMapping;
+  savedMapping: AccountMapping;
+  balanceSyncStatus: Record<number, BalanceSyncStatus>;
   onDraftChange: (lmId: number, entry: MappingEntry) => void;
 }
 
@@ -104,6 +153,8 @@ export function AccountLinkTable({
   lmAccounts,
   wfAccounts,
   draft,
+  savedMapping,
+  balanceSyncStatus,
   onDraftChange,
 }: AccountLinkTableProps) {
   const grouped = lmAccounts
@@ -131,6 +182,7 @@ export function AccountLinkTable({
                 <th className="pb-2 pl-4 font-medium">Subtype</th>
                 <th className="pb-2 pl-4 font-medium">Currency</th>
                 <th className="pb-2 text-right font-medium">Balance</th>
+                <th className="w-6 pb-2"></th>
               </tr>
             </thead>
             <tbody>
@@ -166,6 +218,11 @@ export function AccountLinkTable({
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}
+                  </td>
+                  <td className="w-6 py-2 pl-2">
+                    {savedMapping[acc.id]?.type === "existing" && (
+                      <SyncStatusIcon status={balanceSyncStatus[acc.id]} />
+                    )}
                   </td>
                 </tr>
               ))}

@@ -15,3 +15,18 @@ export async function createWfAccountFromLm(
     group: lm.institution_name || undefined,
   });
 }
+
+export async function saveSnapshot(
+  ctx: AddonContext,
+  wfAccountId: string,
+  currency: string,
+  balance: string,
+  snapshotDate: string,
+): Promise<void> {
+  await ctx.api.snapshots.save(
+    wfAccountId,
+    [],
+    { [currency.toUpperCase()]: balance },
+    snapshotDate,
+  );
+}
