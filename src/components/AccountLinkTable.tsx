@@ -1,152 +1,188 @@
 import React from "react";
 import type { Account } from "@wealthfolio/addon-sdk";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@wealthfolio/ui";
-function LinkIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-    </svg>
-  );
-}
-
-function LinkOffIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-      <line x1="2" y1="2" x2="22" y2="22" />
-    </svg>
-  );
-}
+import {
+  Icons,
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  cn,
+} from "@wealthfolio/ui";
 import type { LunchmoneyAccount } from "../lib/lunchmoney";
 import type { AccountMapping, MappingEntry } from "../types";
 import { claimedWfIds } from "../lib/mapping";
-import type { BalanceSyncStatus } from "../hooks/useAccountSync";
 
-function SyncStatusIcon({ status }: { status: BalanceSyncStatus | undefined }) {
-  if (status === "syncing")
-    return (
-      <svg
-        className="text-muted-foreground h-4 w-4 animate-spin"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-      >
-        <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-      </svg>
-    );
-  if (status === "ok")
-    return (
-      <svg
-        className="h-4 w-4 text-green-500"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <polyline points="20 6 9 17 4 12" />
-      </svg>
-    );
-  if (status === "error")
-    return (
-      <svg
-        className="text-destructive h-4 w-4"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <circle cx="12" cy="12" r="10" />
-        <line x1="12" y1="8" x2="12" y2="12" />
-        <line x1="12" y1="16" x2="12.01" y2="16" />
-      </svg>
-    );
-  return null;
+// ─── LM account info column ──────────────────────────────────────────────────
+
+interface LmAccountInfoProps {
+  acc: LunchmoneyAccount;
+  isLinked: boolean;
 }
 
-function entryToSelectValue(entry: MappingEntry): string {
-  if (entry.type === "ignore") return "ignore";
-  if (entry.type === "create") return "create";
-  return `existing:${entry.wfAccountId}`;
+function LmAccountInfo({ acc, isLinked }: LmAccountInfoProps) {
+  const meta = [acc.type, acc.subtype, acc.currency.toUpperCase()].filter(Boolean).join(" · ");
+
+  return (
+    <div className="grid min-w-0 gap-1">
+      <p className={cn("truncate font-semibold", !isLinked && "text-muted-foreground")}>
+        {acc.name}
+      </p>
+      <p className="text-muted-foreground flex items-center gap-1.5 text-sm capitalize">{meta}</p>
+    </div>
+  );
 }
 
-function selectValueToEntry(val: string): MappingEntry {
-  if (val === "ignore") return { type: "ignore" };
-  if (val === "create") return { type: "create" };
-  if (val.startsWith("existing:")) {
-    return { type: "existing", wfAccountId: val.slice("existing:".length) };
+// ─── WF account info column ───────────────────────────────────────────────────
+
+interface WfAccountInfoProps {
+  entry: MappingEntry | undefined;
+  wfAccount: Account | undefined;
+}
+
+function WfAccountInfo({ entry, wfAccount }: WfAccountInfoProps) {
+  const resolved = entry ?? { type: "ignore" as const };
+
+  if (resolved.type === "ignore") {
+    return (
+      <div className="grid min-w-0 gap-1">
+        <p className="text-muted-foreground truncate font-semibold">Skip</p>
+      </div>
+    );
   }
-  return { type: "ignore" };
+
+  if (resolved.type === "create") {
+    return (
+      <div className="grid min-w-0 gap-1">
+        <p className="text-muted-foreground truncate font-semibold">Create new account</p>
+        <p className="text-muted-foreground text-sm">Will be created on save</p>
+      </div>
+    );
+  }
+
+  if (!wfAccount) {
+    return (
+      <div className="grid min-w-0 gap-1">
+        <p className="text-muted-foreground truncate font-semibold">Unknown account</p>
+      </div>
+    );
+  }
+
+  const meta = [wfAccount.accountType.toLowerCase(), wfAccount.currency, wfAccount.group]
+    .filter(Boolean)
+    .join(" · ");
+
+  return (
+    <div className="grid min-w-0 gap-1">
+      <p className="truncate font-semibold">{wfAccount.name}</p>
+      <p className="text-muted-foreground flex items-center gap-1.5 text-sm">{meta}</p>
+    </div>
+  );
 }
 
-interface AccountLinkTableProps {
-  lmAccounts: LunchmoneyAccount[];
-  wfAccounts: Account[];
-  draft: AccountMapping;
-  savedMapping: AccountMapping;
-  balanceSyncStatus: Record<number, BalanceSyncStatus>;
-  onDraftChange: (lmId: number, entry: MappingEntry) => void;
-}
+// ─── WF account menu button ───────────────────────────────────────────────────
 
-interface WfAccountSelectProps {
+interface WfAccountMenuButtonProps {
   lmId: number;
   wfAccounts: Account[];
   draft: AccountMapping;
   onDraftChange: (lmId: number, entry: MappingEntry) => void;
 }
 
-function WfAccountSelect({ lmId, wfAccounts, draft, onDraftChange }: WfAccountSelectProps) {
+function WfAccountMenuButton({ lmId, wfAccounts, draft, onDraftChange }: WfAccountMenuButtonProps) {
   const claimed = claimedWfIds(draft);
   const currentEntry: MappingEntry = draft[lmId] ?? { type: "ignore" };
-  const currentValue = entryToSelectValue(currentEntry);
-
   const currentWfId = currentEntry.type === "existing" ? currentEntry.wfAccountId : null;
-
   const available = wfAccounts.filter(
-    (a) => !claimed.has(String(a.id)) || String(a.id) === currentWfId,
+    (a) =>
+      a.trackingMode === "HOLDINGS" && String(a.id) !== currentWfId && !claimed.has(String(a.id)),
   );
 
   return (
-    <Select
-      value={currentValue}
-      onValueChange={(val) => onDraftChange(lmId, selectValueToEntry(val))}
-    >
-      <SelectTrigger className="h-8 w-[200px] text-sm">
-        <SelectValue placeholder="Ignore" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="ignore">Ignore</SelectItem>
-        <SelectItem value="create">Create new…</SelectItem>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+          <Icons.ChevronsUpDown className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onSelect={() => onDraftChange(lmId, { type: "ignore" })}>
+          Skip
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onDraftChange(lmId, { type: "create" })}>
+          Create new account…
+        </DropdownMenuItem>
+        {available.length > 0 && <DropdownMenuSeparator />}
         {available.map((a) => (
-          <SelectItem key={a.id} value={`existing:${a.id}`}>
-            {a.name}
-          </SelectItem>
+          <DropdownMenuItem
+            key={a.id}
+            className="flex flex-col items-start"
+            onSelect={() => onDraftChange(lmId, { type: "existing", wfAccountId: String(a.id) })}
+          >
+            <span>{a.name}</span>
+            {a.group && <span className="text-muted-foreground text-xs">{a.group}</span>}
+          </DropdownMenuItem>
         ))}
-      </SelectContent>
-    </Select>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
+}
+
+// ─── Balance indicator ────────────────────────────────────────────────────────
+
+interface BalanceIndicatorProps {
+  wfBalance: number | null;
+  lmBalance: number;
+}
+
+function BalanceIndicator({ wfBalance, lmBalance }: BalanceIndicatorProps) {
+  if (wfBalance === null) return <div className="w-[140px] shrink-0" />;
+
+  const balancesMatch = Math.abs(wfBalance - lmBalance) < 0.005;
+  const diff = wfBalance - lmBalance;
+
+  return (
+    <div className="flex w-[140px] shrink-0 items-center gap-2">
+      {/* always reserve icon space so the number column stays aligned */}
+      <div className="flex h-4 w-4 shrink-0 items-center justify-center">
+        {!balancesMatch && <Icons.AlertTriangle className="h-4 w-4 text-red-500" />}
+      </div>
+      <div className="grid min-w-0 flex-1 text-right">
+        <span
+          className={cn(
+            "text-sm font-medium tabular-nums",
+            balancesMatch ? "text-green-600" : "text-foreground",
+          )}
+        >
+          {wfBalance.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </span>
+        {!balancesMatch && (
+          <span className="text-xs text-red-500 tabular-nums">
+            {diff > 0 ? "+" : ""}
+            {diff.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main table ───────────────────────────────────────────────────────────────
+
+interface AccountLinkTableProps {
+  lmAccounts: LunchmoneyAccount[];
+  wfAccounts: Account[];
+  draft: AccountMapping;
+  savedMapping: AccountMapping;
+  wfCashBalances: Record<string, number>;
+  onDraftChange: (lmId: number, entry: MappingEntry) => void;
 }
 
 export function AccountLinkTable({
@@ -154,7 +190,7 @@ export function AccountLinkTable({
   wfAccounts,
   draft,
   savedMapping,
-  balanceSyncStatus,
+  wfCashBalances,
   onDraftChange,
 }: AccountLinkTableProps) {
   const grouped = lmAccounts
@@ -172,62 +208,65 @@ export function AccountLinkTable({
           <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wider uppercase">
             {institution}
           </h3>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-muted-foreground border-b text-left">
-                <th className="pb-2 font-medium">Lunch Money Account</th>
-                <th className="w-6 pb-2"></th>
-                <th className="pb-2 pl-2 font-medium">Wealthfolio Account</th>
-                <th className="pb-2 pl-4 font-medium">Type</th>
-                <th className="pb-2 pl-4 font-medium">Subtype</th>
-                <th className="pb-2 pl-4 font-medium">Currency</th>
-                <th className="pb-2 text-right font-medium">Balance</th>
-                <th className="w-6 pb-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((acc) => (
-                <tr key={acc.id} className="border-b last:border-0">
-                  <td className="py-2 pr-4">{acc.display_name || acc.name}</td>
-                  <td className="w-6 py-2">
-                    {(() => {
-                      const entry = draft[acc.id];
-                      const isLinked = entry?.type === "existing" || entry?.type === "create";
-                      return isLinked ? (
-                        <LinkIcon className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <LinkOffIcon className="h-4 w-4 text-amber-500" />
-                      );
-                    })()}
-                  </td>
-                  <td className="py-2 pl-2">
-                    <WfAccountSelect
-                      lmId={acc.id}
-                      wfAccounts={wfAccounts}
-                      draft={draft}
-                      onDraftChange={onDraftChange}
-                    />
-                  </td>
-                  <td className="text-muted-foreground py-2 pr-4 pl-4 capitalize">{acc.type}</td>
-                  <td className="text-muted-foreground py-2 pr-4 pl-4 capitalize">
-                    {acc.subtype ?? "—"}
-                  </td>
-                  <td className="text-muted-foreground py-2 pr-4 pl-4 uppercase">{acc.currency}</td>
-                  <td className="py-2 text-right tabular-nums">
-                    {parseFloat(acc.balance).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </td>
-                  <td className="w-6 py-2 pl-2">
-                    {savedMapping[acc.id]?.type === "existing" && (
-                      <SyncStatusIcon status={balanceSyncStatus[acc.id]} />
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="divide-y overflow-hidden rounded-md border">
+            {rows.map((acc) => {
+              const entry = draft[acc.id];
+              const isLinked = entry?.type === "existing" || entry?.type === "create";
+
+              const savedEntry = savedMapping[acc.id];
+              const wfAccount =
+                entry?.type === "existing"
+                  ? wfAccounts.find((w) => String(w.id) === entry.wfAccountId)
+                  : undefined;
+
+              const lmBalance = parseFloat(acc.balance);
+              const wfBalance =
+                savedEntry?.type === "existing" && savedEntry.wfAccountId in wfCashBalances
+                  ? wfCashBalances[savedEntry.wfAccountId]
+                  : null;
+
+              return (
+                <div
+                  key={acc.id}
+                  className={
+                    isLinked
+                      ? "flex items-center gap-3 bg-green-50 p-4 dark:bg-green-950/20"
+                      : "flex items-center gap-3 border-dashed p-4"
+                  }
+                >
+                  {/* Status icon */}
+                  {isLinked ? (
+                    <Icons.CheckCircle className="h-5 w-5 shrink-0 text-green-500" />
+                  ) : (
+                    <Icons.Circle className="text-muted-foreground/40 h-5 w-5 shrink-0" />
+                  )}
+
+                  {/* LM account details */}
+                  <div className="min-w-0 flex-1">
+                    <LmAccountInfo acc={acc} isLinked={isLinked} />
+                  </div>
+
+                  <Icons.ArrowRight className="text-muted-foreground h-4 w-4 shrink-0" />
+
+                  {/* WF account details */}
+                  <div className="min-w-0 flex-1">
+                    <WfAccountInfo entry={entry} wfAccount={wfAccount} />
+                  </div>
+
+                  {/* Menu button to change WF account */}
+                  <WfAccountMenuButton
+                    lmId={acc.id}
+                    wfAccounts={wfAccounts}
+                    draft={draft}
+                    onDraftChange={onDraftChange}
+                  />
+
+                  {/* Balance indicator */}
+                  <BalanceIndicator wfBalance={wfBalance} lmBalance={lmBalance} />
+                </div>
+              );
+            })}
+          </div>
         </div>
       ))}
     </div>

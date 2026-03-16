@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import type { AddonContext } from "@wealthfolio/addon-sdk";
-import { Button, Input, Label, Page, PageHeader, PageContent } from "@wealthfolio/ui";
+import { Button, Input, Label, Page, PageHeader, PageContent, Separator } from "@wealthfolio/ui";
 import { API_KEY_SECRET } from "../lib/secrets";
 
 export default function SettingsPage({ ctx }: { ctx: AddonContext }) {
@@ -29,8 +29,8 @@ export default function SettingsPage({ ctx }: { ctx: AddonContext }) {
   return (
     <Page>
       <PageHeader
-        headingPrefix="Lunch Money Addon"
-        heading="Settings"
+        heading="Lunch Money Addon"
+        text="Synchronise your Lunch Money cash balances to Wealthfolio"
         actions={
           <Button
             variant="outline"
@@ -41,7 +41,7 @@ export default function SettingsPage({ ctx }: { ctx: AddonContext }) {
           </Button>
         }
       />
-
+      <Separator />
       <PageContent withPadding>
         <div className="space-y-4">
           <div className="space-y-2">
