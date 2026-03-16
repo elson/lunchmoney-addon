@@ -140,6 +140,7 @@ export function useAccountSync(
     setIsSyncingBalances(true);
     const today = new Date().toISOString().slice(0, 10);
     const nextStatus: Record<number, BalanceSyncStatus> = {};
+    const errors: string[] = [];
 
     for (const [idStr, entry] of Object.entries(savedMapping)) {
       if (entry.type !== "existing") continue;
@@ -151,15 +152,21 @@ export function useAccountSync(
       setBalanceSyncStatus({ ...nextStatus });
 
       try {
-        await saveSnapshot(entry.wfAccountId, lm.currency, lm.balance, today);
+        await saveSnapshot(ctx, entry.wfAccountId, lm.currency, lm.balance, today);
         nextStatus[lmId] = "ok";
-      } catch {
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        ctx.api.logger.error(`Balance sync failed for LM account ${lmId}: ${msg}`);
         nextStatus[lmId] = "error";
+        errors.push(msg);
       }
       setBalanceSyncStatus({ ...nextStatus });
     }
 
     setIsSyncingBalances(false);
+    if (errors.length > 0) {
+      setError(errors.join(" | "));
+    }
   }
 
   return {
