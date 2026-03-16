@@ -140,7 +140,12 @@ interface BalanceIndicatorProps {
 }
 
 function BalanceIndicator({ wfBalance, lmBalance }: BalanceIndicatorProps) {
-  if (wfBalance === null) return <div className="w-[140px] shrink-0" />;
+  if (wfBalance === null)
+    return (
+      <div className="w-[140px] shrink-0 text-right">
+        <span className="text-muted-foreground/40 text-sm tabular-nums">--,--.--</span>
+      </div>
+    );
 
   const balancesMatch = Math.abs(wfBalance - lmBalance) < 0.005;
   const diff = wfBalance - lmBalance;
@@ -209,7 +214,7 @@ export function AccountLinkTable({
           <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wider uppercase">
             {institution}
           </h3>
-          <div className="divide-y overflow-hidden rounded-md border">
+          <div className="bg-card divide-y overflow-hidden rounded-md border">
             {rows.map((acc) => {
               const entry = draft[acc.id];
               const isLinked = entry?.type === "existing" || entry?.type === "create";
@@ -227,14 +232,7 @@ export function AccountLinkTable({
                   : null;
 
               return (
-                <div
-                  key={acc.id}
-                  className={
-                    isLinked
-                      ? "flex items-center gap-3 bg-green-50 p-4 dark:bg-green-950/20"
-                      : "flex items-center gap-3 border-dashed p-4"
-                  }
-                >
+                <div key={acc.id} className="flex items-center gap-3 p-4">
                   {/* Status icon */}
                   {isLinked ? (
                     <Icons.CheckCircle className="h-5 w-5 shrink-0 text-green-500" />
