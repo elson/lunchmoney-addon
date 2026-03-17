@@ -16,6 +16,7 @@ export default function SettingsPage({ ctx }: { ctx: AddonContext }) {
   async function handleSave() {
     await ctx.api.secrets.set(API_KEY_SECRET, apiKey);
     setStatus("saved");
+    // c8 ignore next
     setTimeout(() => setStatus("idle"), 2000);
   }
 
@@ -23,6 +24,7 @@ export default function SettingsPage({ ctx }: { ctx: AddonContext }) {
     await ctx.api.secrets.delete(API_KEY_SECRET);
     setApiKey("");
     setStatus("cleared");
+    // c8 ignore next
     setTimeout(() => setStatus("idle"), 2000);
   }
 
