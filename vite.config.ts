@@ -1,12 +1,29 @@
+/// <reference types="vitest" />
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 import externalGlobals from "rollup-plugin-external-globals";
+import path from "path";
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [react(), tailwindcss()],
-  define: {
-    "process.env.NODE_ENV": JSON.stringify("production"),
+  // Only force production mode for the actual build, not for tests
+  define: command === "build" ? { "process.env.NODE_ENV": JSON.stringify("production") } : {},
+  test: {
+    globals: true,
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.ts"],
+    include: ["src/**/*.test.{ts,tsx}"],
+    alias: {
+      "@wealthfolio/ui": path.resolve(__dirname, "src/test/mocks/wealthfolio-ui.tsx"),
+    },
+    coverage: {
+      provider: "v8",
+      include: ["src/lib/**", "src/hooks/**", "src/components/**", "src/pages/**"],
+      exclude: ["src/addon.tsx", "src/types/**", "src/lib/secrets.ts", "src/**/index.ts"],
+      thresholds: { lines: 90, branches: 90, functions: 90, statements: 90 },
+      reporter: ["text", "html", "lcov"],
+    },
   },
   build: {
     lib: {
@@ -33,4 +50,4 @@ export default defineConfig({
     minify: false,
     sourcemap: false,
   },
-});
+}));

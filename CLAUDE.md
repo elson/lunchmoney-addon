@@ -6,11 +6,15 @@ code in this repository.
 ## Commands
 
 ```bash
-pnpm dev          # Watch mode build (rebuilds on src/** changes)
-pnpm dev:server   # Run Wealthfolio dev server (hot-reload on ports 3001-3003)
-pnpm build        # One-off production build → dist/addon.js
-pnpm lint         # Type-check only (tsc --noEmit, no test runner)
-pnpm bundle       # Full release: clean → build → zip package
+pnpm dev            # Watch mode build (rebuilds on src/** changes)
+pnpm dev:server     # Run Wealthfolio dev server (hot-reload on ports 3001-3003)
+pnpm build          # One-off production build → dist/addon.js
+pnpm lint           # ESLint (excludes test/coverage dirs)
+pnpm type-check     # tsc --noEmit
+pnpm test           # Run tests once (Vitest)
+pnpm test:watch     # Run tests in watch mode
+pnpm test:coverage  # Run tests with V8 coverage report (≥90% thresholds enforced)
+pnpm bundle         # Full release: clean → build → zip package
 ```
 
 ## Architecture
@@ -34,6 +38,7 @@ components and Tailwind CSS v4 are available for UI.
   save flow)
 - `src/lib/` — pure utilities and API modules (see below)
 - `src/pages/` — full page components registered via `ctx.router.add`
+- `src/test/` — test infrastructure: `setup.ts`, `mockCtx.ts`, `mocks/`
 - `src/types/` — TypeScript interfaces
 
 **Library modules** (`src/lib/`):
@@ -46,6 +51,37 @@ components and Tailwind CSS v4 are available for UI.
   All secret keys in one place.
 - `mapping.ts` — Account mapping domain logic: serialize/deserialize, equality,
   stale cleanup, claimed IDs. Pure functions, no React.
+- `classifyChanges.ts` — Classifies draft vs saved mapping into
+  create/link/relink/unlink/unchanged buckets. Pure function, no React.
+- `filterAccounts.ts` — Filters LM accounts by search query and tab. Pure
+  function, no React.
+
+## Testing
+
+Tests live in `src/**/__tests__/` alongside the code they cover. The test setup
+is in `src/test/`:
+
+- `setup.ts` — imports `@testing-library/jest-dom` matchers
+- `mockCtx.ts` — `createMockCtx()` factory that returns a fully-typed
+  `AddonContext` mock
+- `mocks/wealthfolio-ui.tsx` — passthrough stubs for `@wealthfolio/ui`
+  components (aliased in via `vite.config.ts` `test.alias`)
+
+**Coverage thresholds** (enforced by `pnpm test:coverage`): 90% lines, branches,
+functions, statements. Excluded: `src/addon.tsx`, `src/types/**`,
+`src/lib/secrets.ts`, `src/**/index.ts`.
+
+### TDD workflow
+
+Always follow red → green → refactor:
+
+1. **Red** — write a failing test that captures the desired behaviour before
+   touching any production code. Confirm it fails for the right reason.
+2. **Green** — write the minimum production code needed to make the test pass.
+   No more.
+3. **Refactor** — clean up while keeping all tests green.
+
+Never write production code without a failing test driving it first.
 
 ## AddonContext API
 

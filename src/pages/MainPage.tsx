@@ -15,6 +15,7 @@ import {
 } from "@wealthfolio/ui";
 import { AccountLinkTable, ConfirmSaveDialog } from "../components";
 import { useAccountSync } from "../hooks";
+import { filterAccounts } from "../lib/filterAccounts";
 
 export function MainPage({ ctx }: { ctx: AddonContext }) {
   const [showConfirm, setShowConfirm] = useState(false);
@@ -43,25 +44,10 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
 
   const linkedCount = Object.values(savedMapping).filter((e) => e.type === "existing").length;
 
-  const filteredAccounts = useMemo(() => {
-    if (!lmAccounts) return [];
-    const query = search.trim().toLowerCase();
-    return lmAccounts.filter((acc) => {
-      if (query) {
-        const haystack = [acc.name, acc.display_name ?? "", acc.institution_name ?? ""]
-          .join(" ")
-          .toLowerCase();
-        if (!haystack.includes(query)) return false;
-      }
-      if (filterTab === "linked") {
-        return draft[acc.id]?.type === "existing" || draft[acc.id]?.type === "create";
-      }
-      if (filterTab === "skipped") {
-        return !draft[acc.id] || draft[acc.id]?.type === "ignore";
-      }
-      return true;
-    });
-  }, [lmAccounts, search, filterTab, draft]);
+  const filteredAccounts = useMemo(
+    () => filterAccounts(lmAccounts ?? [], search, filterTab, draft),
+    [lmAccounts, search, filterTab, draft],
+  );
 
   // Re-render the "X ago" label every minute
   const [, setTick] = useState(0);
@@ -74,7 +60,7 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
     <Page>
       <PageHeader
         heading="Lunch Money Accounts"
-        text="Import your Lunch Money balances as Wealthfolio cash snapshots"
+        text="Link your Lunch Money and Wealthfolio accounts and import balances"
         actions={
           <>
             {lastSynced && linkedCount > 0 && (
@@ -93,13 +79,13 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
                 ) : (
                   <Icons.Import className="h-4 w-4" />
                 )}
-                Update Cash Holdings
+                Import Balances
               </Button>
             )}
             <Button
               variant="outline"
               size="icon"
-              title="Refresh Lunch Money balances"
+              title="Refresh Lunch Money accounts"
               onClick={handleRefresh}
               disabled={loading || !hasApiKey}
             >
