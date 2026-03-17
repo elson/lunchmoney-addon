@@ -74,7 +74,7 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
     <Page>
       <PageHeader
         heading="Lunch Money Accounts"
-        text="Import your Lunch Money balances as Wealthfolio cash snapshots"
+        text="Link your Lunch Money and Wealthfolio accounts and import balances"
         actions={
           <>
             {lastSynced && linkedCount > 0 && (
@@ -93,13 +93,13 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
                 ) : (
                   <Icons.Import className="h-4 w-4" />
                 )}
-                Update Cash Holdings
+                Import Balances
               </Button>
             )}
             <Button
               variant="outline"
               size="icon"
-              title="Refresh Lunch Money balances"
+              title="Refresh Lunch Money accounts"
               onClick={handleRefresh}
               disabled={loading || !hasApiKey}
             >
