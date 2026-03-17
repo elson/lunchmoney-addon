@@ -9,7 +9,16 @@ import prettierConfig from "eslint-config-prettier";
 
 export default tseslint.config(
   {
-    ignores: ["dist/**", "node_modules/**", "*.config.js", "*.config.ts"],
+    ignores: [
+      "dist/**",
+      "node_modules/**",
+      "coverage/**",
+      "*.config.js",
+      "*.config.ts",
+      "*.cjs",
+      "src/test/**",
+      "src/**/__tests__/**",
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
