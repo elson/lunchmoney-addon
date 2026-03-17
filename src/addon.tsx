@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import React from "react";
 import type { AddonContext } from "@wealthfolio/addon-sdk";
 import { Icons } from "@wealthfolio/ui";

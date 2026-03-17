@@ -248,4 +248,34 @@ describe("MainPage", () => {
     await userEvent.click(screen.getByLabelText("Clear search"));
     expect(input).toHaveValue("");
   });
+
+  it("navigates to settings when Settings button is clicked", async () => {
+    vi.mocked(useAccountSync).mockReturnValue({ ...defaultHookState });
+    const ctx = createMockCtx();
+    render(<MainPage ctx={ctx} />);
+    await userEvent.click(screen.getByTitle("Settings"));
+    expect(ctx.api.navigation.navigate).toHaveBeenCalledWith("/addon/lunch-money/settings");
+  });
+
+  it("navigates to settings from 'Get started' button when no API key", async () => {
+    vi.mocked(useAccountSync).mockReturnValue({ ...defaultHookState, hasApiKey: false });
+    const ctx = createMockCtx();
+    render(<MainPage ctx={ctx} />);
+    await userEvent.click(screen.getByText("Get started"));
+    expect(ctx.api.navigation.navigate).toHaveBeenCalledWith("/addon/lunch-money/settings");
+  });
+
+  it("calls navigate when AccountLinkTable onNavigate is triggered", async () => {
+    vi.mocked(useAccountSync).mockReturnValue({
+      ...defaultHookState,
+      hasApiKey: true,
+      lmAccounts: [lm(1)],
+      wfAccounts: [wf("w1")],
+      draft: { 1: { type: "existing", wfAccountId: "w1" } },
+    });
+    const ctx = createMockCtx();
+    render(<MainPage ctx={ctx} />);
+    await userEvent.click(screen.getByText("WF w1"));
+    expect(ctx.api.navigation.navigate).toHaveBeenCalledWith("/accounts/w1");
+  });
 });
