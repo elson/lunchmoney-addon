@@ -24,9 +24,24 @@
       "purpose": "Store Lunch Money API key securely"
     },
     {
+      "category": "portfolio",
+      "functions": ["getLatestValuations"],
+      "purpose": "Fetch current Wealthfolio cash balances to compare against Lunch Money"
+    },
+    {
+      "category": "navigation",
+      "functions": ["navigate"],
+      "purpose": "Navigate to Wealthfolio account detail pages"
+    },
+    {
+      "category": "logger",
+      "functions": ["error"],
+      "purpose": "Log errors to the Wealthfolio logger"
+    },
+    {
       "category": "ui",
-      "functions": ["sidebar.addItem"],
-      "purpose": "Add navigation items to the sidebar"
+      "functions": ["sidebar.addItem", "router.add", "onDisable"],
+      "purpose": "Add navigation items and routes to the sidebar, and clean up on disable"
     }
   ],
   "keywords": ["wealthfolio", "lunchmoney", "addon"],

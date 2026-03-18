@@ -29,12 +29,15 @@ Synchronise your [Lunch Money](https://lunchmoney.app) cash account balances to
 
 ### Permissions requested
 
-| Category  | Functions              | Purpose                                 |
-| --------- | ---------------------- | --------------------------------------- |
-| accounts  | `getAll`, `create`     | Display and link accounts               |
-| snapshots | `save`                 | Write balance snapshots                 |
-| secrets   | `get`, `set`, `delete` | Store your API key securely (encrypted) |
-| ui        | `sidebar.addItem`      | Add the sidebar navigation item         |
+| Category   | Functions                                    | Purpose                                             |
+| ---------- | -------------------------------------------- | --------------------------------------------------- |
+| accounts   | `getAll`, `create`                           | Display and link accounts                           |
+| snapshots  | `save`                                       | Write balance snapshots                             |
+| secrets    | `get`, `set`, `delete`                       | Store your API key securely (encrypted)             |
+| portfolio  | `getLatestValuations`                        | Compare Wealthfolio cash balances to Lunch Money    |
+| navigation | `navigate`                                   | Navigate to Wealthfolio account detail pages        |
+| logger     | `error`                                      | Log errors to the Wealthfolio logger                |
+| ui         | `sidebar.addItem`, `router.add`, `onDisable` | Add sidebar nav item and routes; cleanup on disable |
 
 ## Usage
 
