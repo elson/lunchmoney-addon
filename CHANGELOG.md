@@ -8,6 +8,12 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-03-18
+
+### Fixed
+
+- Refresh balance cards after Import Balances completes
+
 ## [0.3.2] - 2026-03-18
 
 ### Added
