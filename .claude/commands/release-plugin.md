@@ -13,8 +13,9 @@ allowed-tools:
   !`node -e "const p=require('./package.json');const m=require('./manifest.json');console.log('package.json: '+p.version+'\nmanifest.json: '+m.version)"`
 - Current branch: !`git branch --show-current`
 - Git status: !`git status --short`
-- Commits since last release:
-  !`git log $(git log --format="%H %s" | grep -m1 "chore: bump version" | awk '{print $1}')..HEAD --oneline --no-merges`
+- Recent commits (everything up to and including the last "chore: bump version"
+  line marks the previous release — commits above that line are unreleased):
+  !`git log --oneline --no-merges -30`
 
 ## Your task
 
