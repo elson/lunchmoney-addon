@@ -13,6 +13,8 @@ allowed-tools:
   !`node -e "const p=require('./package.json');const m=require('./manifest.json');console.log('package.json: '+p.version+'\nmanifest.json: '+m.version)"`
 - Current branch: !`git branch --show-current`
 - Git status: !`git status --short`
+- Commits since last release:
+  !`git log $(git log --format="%H %s" | grep -m1 "chore: bump version" | awk '{print $1}')..HEAD --oneline --no-merges`
 
 ## Your task
 
@@ -30,7 +32,21 @@ bumping the appropriate segment:
 - `major` — increment the first number, reset minor and patch to 0 (e.g. 0.1.1 →
   1.0.0)
 
-### 2. Confirm with the user
+### 2. Summarise changes
+
+Using the commits listed in the context above, categorise them into changelog
+sections. Map conventional commit prefixes as follows:
+
+- `feat:` → **Added**
+- `fix:` → **Fixed**
+- `docs:` → **Changed**
+- `refactor:` / `perf:` → **Changed**
+- `chore:` / `test:` / `ci:` → omit (internal, not user-facing)
+
+Strip the prefix and capitalise the first letter of each entry. Omit merge
+commits and version bump commits.
+
+### 3. Confirm with the user
 
 Before making any changes, present a summary and ask for confirmation:
 
@@ -38,20 +54,54 @@ Before making any changes, present a summary and ask for confirmation:
 Ready to release:
   Bump type : <patch|minor|major>
   Version   : <current> → <new>
-  Files     : package.json, manifest.json
-  Actions   : commit "chore: bump version to <new>" → push to main → push to release branch
+  Files     : package.json, manifest.json, CHANGELOG.md
+  Actions   : update CHANGELOG.md → commit → push to main → push to release branch
+
+Changes in this release:
+  Added
+  - <entry>
+
+  Fixed
+  - <entry>
+
+  Changed
+  - <entry>
 
 Proceed? (yes/no)
 ```
 
-Only continue if the user confirms.
+Only show sections that have entries. Only continue if the user confirms.
 
-### 3. Check for uncommitted changes
+### 4. Check for uncommitted changes
 
 If `git status` shows uncommitted changes, warn the user and ask whether to
 proceed anyway or abort.
 
-### 4. Update version files
+### 5. Update CHANGELOG.md
+
+Read `CHANGELOG.md`. Insert a new version section immediately after the
+`## [Unreleased]` heading (keep the Unreleased section, but empty its content).
+The new section format is:
+
+```markdown
+## [<new-version>] - <YYYY-MM-DD>
+
+### Added
+
+- <entry>
+
+### Fixed
+
+- <entry>
+
+### Changed
+
+- <entry>
+```
+
+Only include sections that have entries. Use today's date for the release date.
+
+### 6. Update version files
 
 Using the Edit tool, update the `"version"` field in both:
 
@@ -60,10 +110,10 @@ Using the Edit tool, update the `"version"` field in both:
 
 Both must be set to exactly the same new version string.
 
-### 5. Commit and push
+### 7. Commit and push
 
 ```bash
-git add package.json manifest.json
+git add package.json manifest.json CHANGELOG.md
 git commit -m "chore: bump version to <new>
 
 Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
@@ -71,7 +121,7 @@ git push
 git push origin main:release
 ```
 
-### 6. Confirm completion
+### 8. Confirm completion
 
 Report the new version and confirm that the release CI has been triggered on the
 `release` branch.
