@@ -1,5 +1,5 @@
 ---
-name: release
+name: release-plugin
 description:
   Bump version and publish a new release of the addon (patch, minor, or major)
 allowed-tools:
