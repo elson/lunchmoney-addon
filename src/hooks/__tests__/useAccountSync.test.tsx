@@ -298,6 +298,43 @@ describe("useAccountSync", () => {
     expect(result.current.isSyncingBalances).toBe(false);
   });
 
+  it("handleSyncBalances triggers portfolio update and refreshes balances on success", async () => {
+    localStorage.setItem(
+      "lunchmoney-addon:account-mapping",
+      JSON.stringify({ 1: { type: "existing", wfAccountId: "w1" } }),
+    );
+    const ctx = createMockCtx();
+    vi.mocked(ctx.api.secrets.get).mockResolvedValue("test-key");
+    vi.mocked(fetchAllAccounts).mockResolvedValue([lm(1)]);
+    vi.mocked(ctx.api.accounts.getAll).mockResolvedValue([wfAccount("w1")] as never);
+    vi.mocked(ctx.api.portfolio.getLatestValuations).mockResolvedValue([
+      { accountId: "w1", cashBalance: 100.0 } as never,
+    ]);
+
+    const callOrder: string[] = [];
+    vi.mocked(ctx.api.snapshots.save).mockImplementation(async () => {
+      callOrder.push("snapshots.save");
+    });
+    vi.mocked(ctx.api.portfolio.update).mockImplementation(async () => {
+      callOrder.push("portfolio.update");
+    });
+    vi.mocked(ctx.api.portfolio.getLatestValuations).mockImplementation(async () => {
+      callOrder.push("getLatestValuations");
+      return [{ accountId: "w1", cashBalance: 100.0 }] as never;
+    });
+
+    const { result } = renderHook(() => useAccountSync(ctx, false));
+    await waitFor(() => expect(result.current.lmAccounts).toHaveLength(1));
+    callOrder.length = 0; // reset after initial load
+
+    await act(async () => {
+      await result.current.handleSyncBalances();
+    });
+
+    expect(callOrder).toEqual(["snapshots.save", "portfolio.update", "getLatestValuations"]);
+    expect(result.current.wfCashBalances["w1"]).toBe(100.0);
+  });
+
   it("handleSyncBalances sets error on partial failure", async () => {
     localStorage.setItem(
       "lunchmoney-addon:account-mapping",

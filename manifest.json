@@ -25,7 +25,7 @@
     },
     {
       "category": "portfolio",
-      "functions": ["getLatestValuations"],
+      "functions": ["getLatestValuations", "update"],
       "purpose": "Fetch current Wealthfolio cash balances to compare against Lunch Money"
     },
     {

@@ -187,6 +187,7 @@ export function useAccountSync(
     } else {
       saveLastSynced();
       setLastSynced(new Date());
+      await ctx.api.portfolio.update();
       await loadValuations(savedMapping);
     }
   }
