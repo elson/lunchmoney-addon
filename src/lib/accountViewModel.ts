@@ -167,52 +167,53 @@ export function buildAccountViewModel(
   // Lazy getter — change classification is deferred until first access
   let cachedChanges: ChangeClassification | undefined;
 
-  // Use `let` so the `filtered` closure can reference `vm` by name
-  let vm: AccountViewModel;
-
-  function filtered(search: string, tab: FilterTab): AccountViewModel {
-    if (!search.trim() && tab === "all") return vm;
-    const query = search.trim().toLowerCase();
-    const filteredRows = rows.filter((row) => {
-      if (query) {
-        const haystack = [row.lm.name, row.lm.display_name ?? "", row.lm.institution_name ?? ""]
-          .join(" ")
-          .toLowerCase();
-        if (!haystack.includes(query)) return false;
-      }
-      if (tab === "linked") return row.isLinked;
-      if (tab === "skipped") return !row.isLinked;
-      return true;
-    });
-    return {
-      rows: filteredRows,
-      groups: buildGroups(filteredRows),
-      wfAccounts,
-      linkedCount,
-      isDirty,
-      claimedWfIds: claimed,
-      get changes() {
-        return vm.changes;
-      },
-      filtered,
-    } as unknown as AccountViewModel;
-  }
-
-  vm = {
+  const vm = {
     rows,
     groups,
     wfAccounts,
     linkedCount,
     isDirty,
     claimedWfIds: claimed,
-    filtered,
   } as unknown as AccountViewModel;
+
   Object.defineProperty(vm, "changes", {
     get() {
       if (!cachedChanges) {
         cachedChanges = classifyChanges(draft, savedMapping, lmAccounts, wfAccounts);
       }
       return cachedChanges;
+    },
+    enumerable: true,
+  });
+  Object.defineProperty(vm, "filtered", {
+    value(search: string, tab: FilterTab): AccountViewModel {
+      if (!search.trim() && tab === "all") return vm;
+      const query = search.trim().toLowerCase();
+      const filteredRows = rows.filter((row) => {
+        if (query) {
+          const haystack = [row.lm.name, row.lm.display_name ?? "", row.lm.institution_name ?? ""]
+            .join(" ")
+            .toLowerCase();
+          if (!haystack.includes(query)) return false;
+        }
+        if (tab === "linked") return row.isLinked;
+        if (tab === "skipped") return !row.isLinked;
+        return true;
+      });
+      return {
+        rows: filteredRows,
+        groups: buildGroups(filteredRows),
+        wfAccounts,
+        linkedCount,
+        isDirty,
+        claimedWfIds: claimed,
+        get changes() {
+          return vm.changes;
+        },
+        get filtered() {
+          return (vm as unknown as { filtered: AccountViewModel["filtered"] }).filtered;
+        },
+      } as unknown as AccountViewModel;
     },
     enumerable: true,
   });
