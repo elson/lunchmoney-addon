@@ -1,14 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import type { AddonContext, Account } from "@wealthfolio/addon-sdk";
-import { fetchAllAccounts, getApiKey, type LunchmoneyAccount } from "../lib/lunchmoney";
-import { createWfAccountFromLm, saveSnapshot } from "../lib/wealthfolio";
-import {
-  loadMapping,
-  saveMapping,
-  loadLastSynced,
-  saveLastSynced,
-  cleanMapping,
-} from "../lib/mapping";
+import { getApiKey, type LunchmoneyAccount } from "../lib/lunchmoney";
+import { loadLastSynced } from "../lib/mapping";
+import { createSyncEngine } from "../lib/syncEngine";
 import type { AccountMapping, MappingEntry } from "../types";
 import { buildAccountViewModel, type AccountViewModel } from "../lib/accountViewModel";
 
@@ -66,6 +60,8 @@ export function useAccountSync(ctx: AddonContext, paused: boolean): AccountSyncC
   const [isSyncingBalances, setIsSyncingBalances] = useState(false);
   const [wfCashBalances, setWfCashBalances] = useState<Record<string, number>>({});
 
+  const engine = useMemo(() => createSyncEngine(ctx), [ctx]);
+
   useEffect(() => {
     if (paused) return;
     getApiKey(ctx).then((key) => {
@@ -83,51 +79,16 @@ export function useAccountSync(ctx: AddonContext, paused: boolean): AccountSyncC
     setError(null);
     setLoading(true);
     try {
-      const [lmData, wfData, mapping] = await Promise.all([
-        fetchAllAccounts(key),
-        ctx.api.accounts.getAll(),
-        loadMapping(ctx),
-      ]);
-
-      const wfIdSet = new Set(wfData.map((a) => String(a.id)));
-      const lmIdSet = new Set(lmData.map((a) => a.id));
-      const cleaned = cleanMapping(mapping, wfIdSet, lmIdSet);
-
-      // Persist immediately if stale entries were removed, so they don't
-      // re-lock WF accounts on the next load before a Save is triggered.
-      if (Object.keys(cleaned).length !== Object.keys(mapping).length) {
-        saveMapping(cleaned);
-      }
-
-      setLmAccounts(lmData);
-      setWfAccounts(wfData);
-      setSavedMapping(cleaned);
-      setDraft(cleaned);
-      await loadValuations(cleaned);
+      const r = await engine.loadAll(key);
+      setLmAccounts(r.lmAccounts);
+      setWfAccounts(r.wfAccounts);
+      setSavedMapping(r.savedMapping);
+      setDraft(r.savedMapping);
+      setWfCashBalances(r.wfCashBalances);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch accounts");
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function loadValuations(mapping: AccountMapping) {
-    const wfIds = Object.values(mapping)
-      .filter((e): e is { type: "existing"; wfAccountId: string } => e.type === "existing")
-      .map((e) => e.wfAccountId);
-    if (wfIds.length === 0) {
-      setWfCashBalances({});
-      return;
-    }
-    try {
-      const valuations = await ctx.api.portfolio.getLatestValuations(wfIds);
-      const balances: Record<string, number> = {};
-      for (const v of valuations) {
-        balances[v.accountId] = v.cashBalance;
-      }
-      setWfCashBalances(balances);
-    } catch {
-      // non-fatal: balance display stays empty
     }
   }
 
@@ -146,24 +107,10 @@ export function useAccountSync(ctx: AddonContext, paused: boolean): AccountSyncC
   async function handleConfirm() {
     setIsSaving(true);
     try {
-      const finalDraft: AccountMapping = { ...draft };
-
-      for (const [idStr, entry] of Object.entries(draft)) {
-        if (entry.type !== "create") continue;
-        const lmId = Number(idStr);
-        const lm = lmAccounts?.find((a) => a.id === lmId);
-        if (!lm) continue;
-
-        const created = await createWfAccountFromLm(ctx, lm);
-        finalDraft[lmId] = { type: "existing", wfAccountId: String(created.id) };
-      }
-
-      saveMapping(finalDraft);
-
-      const wfData = await ctx.api.accounts.getAll();
-      setWfAccounts(wfData);
-      setSavedMapping(finalDraft);
-      setDraft(finalDraft);
+      const r = await engine.confirm(draft, lmAccounts!);
+      setWfAccounts(r.wfAccounts);
+      setSavedMapping(r.savedMapping);
+      setDraft(r.savedMapping);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
     } finally {
@@ -174,32 +121,13 @@ export function useAccountSync(ctx: AddonContext, paused: boolean): AccountSyncC
   async function handleSyncBalances() {
     if (!lmAccounts) return;
     setIsSyncingBalances(true);
-    const today = new Date().toISOString().slice(0, 10);
-    const errors: string[] = [];
-
-    for (const [idStr, entry] of Object.entries(savedMapping)) {
-      if (entry.type !== "existing") continue;
-      const lmId = Number(idStr);
-      const lm = lmAccounts.find((a) => a.id === lmId);
-      if (!lm) continue;
-
-      try {
-        await saveSnapshot(ctx, entry.wfAccountId, lm.currency, lm.balance, today);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        ctx.api.logger.error(`Balance sync failed for LM account ${lmId}: ${msg}`);
-        errors.push(msg);
-      }
-    }
-
+    const r = await engine.syncBalances(savedMapping, lmAccounts);
     setIsSyncingBalances(false);
-    if (errors.length > 0) {
-      setError(errors.join(" | "));
+    if (r.ok) {
+      setLastSynced(r.lastSynced);
+      setWfCashBalances(r.wfCashBalances);
     } else {
-      saveLastSynced();
-      setLastSynced(new Date());
-      await ctx.api.portfolio.update();
-      await loadValuations(savedMapping);
+      setError(r.errors.join(" | "));
     }
   }
 
