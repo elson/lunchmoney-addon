@@ -85,11 +85,3 @@ export function cleanMapping(
   }
   return cleaned;
 }
-
-export function claimedWfIds(draft: AccountMapping): Set<string> {
-  const ids = new Set<string>();
-  for (const entry of Object.values(draft)) {
-    if (entry.type === "existing") ids.add(entry.wfAccountId);
-  }
-  return ids;
-}

@@ -4,7 +4,6 @@ import {
   deserializeMapping,
   mappingsEqual,
   cleanMapping,
-  claimedWfIds,
   loadMapping,
   saveMapping,
   loadLastSynced,
@@ -97,28 +96,6 @@ describe("cleanMapping", () => {
     const mapping = { 1: { type: "ignore" as const }, 2: { type: "create" as const } };
     const result = cleanMapping(mapping, new Set(), new Set([1, 2]));
     expect(result).toEqual({ 1: { type: "ignore" }, 2: { type: "create" } });
-  });
-});
-
-// ─── claimedWfIds ─────────────────────────────────────────────────────────────
-
-describe("claimedWfIds", () => {
-  it("returns empty set for empty mapping", () => {
-    expect(claimedWfIds({})).toEqual(new Set());
-  });
-
-  it("ignores non-existing entries", () => {
-    const draft = { 1: { type: "ignore" as const }, 2: { type: "create" as const } };
-    expect(claimedWfIds(draft)).toEqual(new Set());
-  });
-
-  it("returns wfAccountIds for existing entries", () => {
-    const draft = {
-      1: { type: "existing" as const, wfAccountId: "w1" },
-      2: { type: "existing" as const, wfAccountId: "w2" },
-      3: { type: "ignore" as const },
-    };
-    expect(claimedWfIds(draft)).toEqual(new Set(["w1", "w2"]));
   });
 });
 

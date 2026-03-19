@@ -5,5 +5,11 @@ export {
   clearApiKey,
   type LunchmoneyAccount,
 } from "./lunchmoney";
-export { createWfAccountFromLm } from "./wealthfolio";
-export { loadMapping, saveMapping, mappingsEqual, cleanMapping, claimedWfIds } from "./mapping";
+export { loadMapping, saveMapping, mappingsEqual, cleanMapping } from "./mapping";
+export {
+  createSyncEngine,
+  type SyncEngine,
+  type LoadResult,
+  type ConfirmResult,
+  type SyncBalancesResult,
+} from "./syncEngine";
