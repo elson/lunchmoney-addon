@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ConfirmSaveDialog } from "../ConfirmSaveDialog";
+import { buildAccountViewModel } from "../../lib/accountViewModel";
 import type { LunchmoneyAccount } from "../../lib/lunchmoney";
 import type { Account } from "@wealthfolio/addon-sdk";
 import type { AccountMapping } from "../../types";
@@ -29,30 +30,40 @@ const wf = (id: string, name = `WF ${id}`): Account =>
     trackingMode: "HOLDINGS",
   }) as unknown as Account;
 
-const baseProps = {
-  open: true,
-  draft: {} as AccountMapping,
-  savedMapping: {} as AccountMapping,
-  lmAccounts: [] as LunchmoneyAccount[],
-  wfAccounts: [] as Account[],
-  onConfirm: vi.fn(),
-  onCancel: vi.fn(),
-};
+function makeVm(
+  lmAccounts: LunchmoneyAccount[],
+  wfAccounts: Account[],
+  draft: AccountMapping = {},
+  savedMapping: AccountMapping = {},
+) {
+  return buildAccountViewModel(lmAccounts, wfAccounts, draft, savedMapping, {});
+}
 
 describe("ConfirmSaveDialog", () => {
   it("renders nothing when open=false", () => {
-    render(<ConfirmSaveDialog {...baseProps} open={false} />);
+    render(
+      <ConfirmSaveDialog open={false} vm={makeVm([], [])} onConfirm={vi.fn()} onCancel={vi.fn()} />,
+    );
     expect(screen.queryByTestId("dialog")).toBeNull();
   });
 
   it("shows 'No changes' when there are no entries", () => {
-    render(<ConfirmSaveDialog {...baseProps} />);
+    render(
+      <ConfirmSaveDialog open={true} vm={makeVm([], [])} onConfirm={vi.fn()} onCancel={vi.fn()} />,
+    );
     expect(screen.getByText("No changes to apply.")).toBeInTheDocument();
   });
 
   it("shows toCreate section", () => {
     const draft: AccountMapping = { 1: { type: "create" } };
-    render(<ConfirmSaveDialog {...baseProps} draft={draft} lmAccounts={[lm(1, "Checking")]} />);
+    render(
+      <ConfirmSaveDialog
+        open={true}
+        vm={makeVm([lm(1, "Checking")], [], draft)}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
     expect(screen.getByText("Accounts to create:")).toBeInTheDocument();
     expect(screen.getByText("Checking")).toBeInTheDocument();
   });
@@ -60,7 +71,14 @@ describe("ConfirmSaveDialog", () => {
   it("shows institution group for create entry", () => {
     const acc = { ...lm(1, "Checking"), institution_name: "Big Bank" };
     const draft: AccountMapping = { 1: { type: "create" } };
-    render(<ConfirmSaveDialog {...baseProps} draft={draft} lmAccounts={[acc]} />);
+    render(
+      <ConfirmSaveDialog
+        open={true}
+        vm={makeVm([acc], [], draft)}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
     expect(screen.getByText(/group: Big Bank/)).toBeInTheDocument();
   });
 
@@ -69,11 +87,10 @@ describe("ConfirmSaveDialog", () => {
     const saved: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
     render(
       <ConfirmSaveDialog
-        {...baseProps}
-        draft={draft}
-        savedMapping={saved}
-        lmAccounts={[lm(1)]}
-        wfAccounts={[wf("w1", "Old Account")]}
+        open={true}
+        vm={makeVm([lm(1)], [wf("w1", "Old Account")], draft, saved)}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
       />,
     );
     expect(screen.getByText(/unlinks from Old Account/)).toBeInTheDocument();
@@ -83,10 +100,10 @@ describe("ConfirmSaveDialog", () => {
     const draft: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
     render(
       <ConfirmSaveDialog
-        {...baseProps}
-        draft={draft}
-        lmAccounts={[lm(1, "Checking")]}
-        wfAccounts={[wf("w1", "My WF")]}
+        open={true}
+        vm={makeVm([lm(1, "Checking")], [wf("w1", "My WF")], draft)}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
       />,
     );
     expect(screen.getByText("Accounts to link:")).toBeInTheDocument();
@@ -98,11 +115,10 @@ describe("ConfirmSaveDialog", () => {
     const saved: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
     render(
       <ConfirmSaveDialog
-        {...baseProps}
-        draft={draft}
-        savedMapping={saved}
-        lmAccounts={[lm(1, "Checking")]}
-        wfAccounts={[wf("w1", "Old WF"), wf("w2", "New WF")]}
+        open={true}
+        vm={makeVm([lm(1, "Checking")], [wf("w1", "Old WF"), wf("w2", "New WF")], draft, saved)}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
       />,
     );
     expect(screen.getByText("Accounts to relink:")).toBeInTheDocument();
@@ -113,10 +129,10 @@ describe("ConfirmSaveDialog", () => {
     const saved: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
     render(
       <ConfirmSaveDialog
-        {...baseProps}
-        savedMapping={saved}
-        lmAccounts={[lm(1, "Checking")]}
-        wfAccounts={[wf("w1", "My WF")]}
+        open={true}
+        vm={makeVm([lm(1, "Checking")], [wf("w1", "My WF")], {}, saved)}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
       />,
     );
     expect(screen.getByText("Accounts to unlink:")).toBeInTheDocument();
@@ -127,11 +143,10 @@ describe("ConfirmSaveDialog", () => {
     const lmWithDisplay = { ...lm(1), display_name: "Pretty Name" };
     render(
       <ConfirmSaveDialog
-        {...baseProps}
-        draft={{ 1: entry }}
-        savedMapping={{ 1: entry }}
-        lmAccounts={[lmWithDisplay]}
-        wfAccounts={[wf("w1", "My WF")]}
+        open={true}
+        vm={makeVm([lmWithDisplay], [wf("w1", "My WF")], { 1: entry }, { 1: entry })}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
       />,
     );
     expect(screen.getByText("Unchanged:")).toBeInTheDocument();
@@ -139,7 +154,9 @@ describe("ConfirmSaveDialog", () => {
   });
 
   it("Confirm button is disabled when no changes", () => {
-    render(<ConfirmSaveDialog {...baseProps} />);
+    render(
+      <ConfirmSaveDialog open={true} vm={makeVm([], [])} onConfirm={vi.fn()} onCancel={vi.fn()} />,
+    );
     expect(screen.getByText("Confirm")).toBeDisabled();
   });
 
@@ -147,7 +164,12 @@ describe("ConfirmSaveDialog", () => {
     const onConfirm = vi.fn();
     const draft: AccountMapping = { 1: { type: "create" } };
     render(
-      <ConfirmSaveDialog {...baseProps} draft={draft} lmAccounts={[lm(1)]} onConfirm={onConfirm} />,
+      <ConfirmSaveDialog
+        open={true}
+        vm={makeVm([lm(1)], [], draft)}
+        onConfirm={onConfirm}
+        onCancel={vi.fn()}
+      />,
     );
     await userEvent.click(screen.getByText("Confirm"));
     expect(onConfirm).toHaveBeenCalledTimes(1);
@@ -155,7 +177,9 @@ describe("ConfirmSaveDialog", () => {
 
   it("calls onCancel when cancel is clicked", async () => {
     const onCancel = vi.fn();
-    render(<ConfirmSaveDialog {...baseProps} onCancel={onCancel} />);
+    render(
+      <ConfirmSaveDialog open={true} vm={makeVm([], [])} onConfirm={vi.fn()} onCancel={onCancel} />,
+    );
     await userEvent.click(screen.getByText("Cancel"));
     expect(onCancel).toHaveBeenCalledTimes(1);
   });

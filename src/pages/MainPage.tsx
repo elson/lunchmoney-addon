@@ -16,6 +16,7 @@ import {
 import { AccountLinkTable, ConfirmSaveDialog } from "../components";
 import { useAccountSync } from "../hooks";
 import { filterAccounts } from "../lib/filterAccounts";
+import { buildAccountViewModel } from "../lib/accountViewModel";
 
 export function MainPage({ ctx }: { ctx: AddonContext }) {
   const [showConfirm, setShowConfirm] = useState(false);
@@ -31,7 +32,6 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
     error,
     hasApiKey,
     isSaving,
-    isDirty,
     lastSynced,
     isSyncingBalances,
     wfCashBalances,
@@ -42,11 +42,28 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
     handleSyncBalances,
   } = useAccountSync(ctx, false);
 
-  const linkedCount = Object.values(savedMapping).filter((e) => e.type === "existing").length;
+  // Unfiltered VM — used for linkedCount, isDirty, and the confirm dialog
+  const unfilteredVm = useMemo(
+    () =>
+      lmAccounts && wfAccounts
+        ? buildAccountViewModel(lmAccounts, wfAccounts, draft, savedMapping, wfCashBalances)
+        : null,
+    [lmAccounts, wfAccounts, draft, savedMapping, wfCashBalances],
+  );
 
-  const filteredAccounts = useMemo(
-    () => filterAccounts(lmAccounts ?? [], search, filterTab, draft),
-    [lmAccounts, search, filterTab, draft],
+  // Filtered VM — used for the table
+  const tableVm = useMemo(
+    () =>
+      lmAccounts && wfAccounts
+        ? buildAccountViewModel(
+            filterAccounts(lmAccounts, search, filterTab, draft),
+            wfAccounts,
+            draft,
+            savedMapping,
+            wfCashBalances,
+          )
+        : null,
+    [lmAccounts, wfAccounts, search, filterTab, draft, savedMapping, wfCashBalances],
   );
 
   // Re-render the "X ago" label every minute
@@ -55,6 +72,9 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
     const id = setInterval(() => setTick((t) => t + 1), 60_000);
     return () => clearInterval(id);
   }, []);
+
+  const linkedCount = unfilteredVm?.linkedCount ?? 0;
+  const isDirty = unfilteredVm?.isDirty ?? false;
 
   return (
     <Page>
@@ -129,7 +149,7 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
           <p className="text-muted-foreground text-sm">No accounts found.</p>
         )}
 
-        {lmAccounts && lmAccounts.length > 0 && wfAccounts && (
+        {tableVm && unfilteredVm && lmAccounts && lmAccounts.length > 0 && (
           <>
             <div className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="relative flex-1 sm:max-w-sm">
@@ -172,19 +192,15 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
               </ToggleGroup>
             </div>
 
-            {filteredAccounts.length === 0 && (
+            {tableVm.rows.length === 0 && (
               <p className="text-muted-foreground mt-6 text-center text-sm">
                 No accounts match your search.
               </p>
             )}
 
-            {filteredAccounts.length > 0 && (
+            {tableVm.rows.length > 0 && (
               <AccountLinkTable
-                lmAccounts={filteredAccounts}
-                wfAccounts={wfAccounts}
-                draft={draft}
-                savedMapping={savedMapping}
-                wfCashBalances={wfCashBalances}
+                vm={tableVm}
                 onDraftChange={handleDraftChange}
                 onNavigate={(path) => ctx.api.navigation.navigate(path)}
               />
@@ -210,10 +226,7 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
 
             <ConfirmSaveDialog
               open={showConfirm}
-              draft={draft}
-              savedMapping={savedMapping}
-              lmAccounts={lmAccounts}
-              wfAccounts={wfAccounts}
+              vm={unfilteredVm}
               onConfirm={async () => {
                 setShowConfirm(false);
                 await handleConfirm();

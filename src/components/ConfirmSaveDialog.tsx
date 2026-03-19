@@ -1,5 +1,4 @@
 import React from "react";
-import type { Account } from "@wealthfolio/addon-sdk";
 import {
   Button,
   Dialog,
@@ -8,16 +7,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@wealthfolio/ui";
+import type { AccountViewModel } from "../lib/accountViewModel";
 import type { LunchmoneyAccount } from "../lib/lunchmoney";
-import { classifyChanges } from "../lib/classifyChanges";
-import type { AccountMapping } from "../types";
 
 interface ConfirmSaveDialogProps {
   open: boolean;
-  draft: AccountMapping;
-  savedMapping: AccountMapping;
-  lmAccounts: LunchmoneyAccount[];
-  wfAccounts: Account[];
+  vm: AccountViewModel;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -26,21 +21,8 @@ function lmName(lm: LunchmoneyAccount) {
   return lm.display_name || lm.name;
 }
 
-export function ConfirmSaveDialog({
-  open,
-  draft,
-  savedMapping,
-  lmAccounts,
-  wfAccounts,
-  onConfirm,
-  onCancel,
-}: ConfirmSaveDialogProps) {
-  const { toCreate, toLink, toRelink, toUnlink, unchanged, hasChanges } = classifyChanges(
-    draft,
-    savedMapping,
-    lmAccounts,
-    wfAccounts,
-  );
+export function ConfirmSaveDialog({ open, vm, onConfirm, onCancel }: ConfirmSaveDialogProps) {
+  const { toCreate, toLink, toRelink, toUnlink, unchanged, hasChanges } = vm.changes;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onCancel()}>

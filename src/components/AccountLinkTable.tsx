@@ -11,8 +11,8 @@ import {
   cn,
 } from "@wealthfolio/ui";
 import type { LunchmoneyAccount } from "../lib/lunchmoney";
-import type { AccountMapping, MappingEntry } from "../types";
-import { claimedWfIds } from "../lib/mapping";
+import type { AccountViewModel, AccountRowVM } from "../lib/accountViewModel";
+import type { MappingEntry } from "../types";
 
 // ─── LM account info column ──────────────────────────────────────────────────
 
@@ -40,15 +40,13 @@ function LmAccountInfo({ acc, isLinked }: LmAccountInfoProps) {
 // ─── WF account info column ───────────────────────────────────────────────────
 
 interface WfAccountInfoProps {
-  entry: MappingEntry | undefined;
+  entry: MappingEntry;
   wfAccount: Account | undefined;
   onNavigate: (path: string) => void;
 }
 
 function WfAccountInfo({ entry, wfAccount, onNavigate }: WfAccountInfoProps) {
-  const resolved = entry ?? { type: "ignore" as const };
-
-  if (resolved.type === "ignore") {
+  if (entry.type === "ignore") {
     return (
       <div className="grid min-w-0 gap-1">
         <p className="text-muted-foreground truncate font-semibold">Skip</p>
@@ -56,7 +54,7 @@ function WfAccountInfo({ entry, wfAccount, onNavigate }: WfAccountInfoProps) {
     );
   }
 
-  if (resolved.type === "create") {
+  if (entry.type === "create") {
     return (
       <div className="grid min-w-0 gap-1">
         <p className="text-muted-foreground truncate font-semibold">Create new account</p>
@@ -101,18 +99,25 @@ function WfAccountInfo({ entry, wfAccount, onNavigate }: WfAccountInfoProps) {
 
 interface WfAccountMenuButtonProps {
   lmId: number;
-  wfAccounts: Account[];
-  draft: AccountMapping;
+  wfAccounts: readonly Account[];
+  claimedWfIds: ReadonlySet<string>;
+  currentEntry: MappingEntry;
   onDraftChange: (lmId: number, entry: MappingEntry) => void;
 }
 
-function WfAccountMenuButton({ lmId, wfAccounts, draft, onDraftChange }: WfAccountMenuButtonProps) {
-  const claimed = claimedWfIds(draft);
-  const currentEntry: MappingEntry = draft[lmId] ?? { type: "ignore" };
+function WfAccountMenuButton({
+  lmId,
+  wfAccounts,
+  claimedWfIds,
+  currentEntry,
+  onDraftChange,
+}: WfAccountMenuButtonProps) {
   const currentWfId = currentEntry.type === "existing" ? currentEntry.wfAccountId : null;
   const available = wfAccounts.filter(
     (a) =>
-      a.trackingMode === "HOLDINGS" && String(a.id) !== currentWfId && !claimed.has(String(a.id)),
+      a.trackingMode === "HOLDINGS" &&
+      String(a.id) !== currentWfId &&
+      !claimedWfIds.has(String(a.id)),
   );
 
   return (
@@ -149,19 +154,17 @@ function WfAccountMenuButton({ lmId, wfAccounts, draft, onDraftChange }: WfAccou
 
 interface BalanceIndicatorProps {
   wfBalance: number | null;
-  lmBalance: number;
+  balanceDelta: number | null;
+  balancesMatch: boolean;
 }
 
-function BalanceIndicator({ wfBalance, lmBalance }: BalanceIndicatorProps) {
+function BalanceIndicator({ wfBalance, balanceDelta, balancesMatch }: BalanceIndicatorProps) {
   if (wfBalance === null)
     return (
       <div className="w-[140px] shrink-0 text-right">
         <span className="text-muted-foreground/40 text-sm tabular-nums">--,--.--</span>
       </div>
     );
-
-  const balancesMatch = Math.abs(wfBalance - lmBalance) < 0.005;
-  const diff = wfBalance - lmBalance;
 
   return (
     <div className="flex w-[140px] shrink-0 items-center gap-2">
@@ -181,10 +184,10 @@ function BalanceIndicator({ wfBalance, lmBalance }: BalanceIndicatorProps) {
             maximumFractionDigits: 2,
           })}
         </span>
-        {!balancesMatch && (
+        {!balancesMatch && balanceDelta !== null && (
           <span className="text-xs text-red-500 tabular-nums">
-            {diff > 0 ? "+" : ""}
-            {diff.toLocaleString(undefined, {
+            {balanceDelta > 0 ? "+" : ""}
+            {balanceDelta.toLocaleString(undefined, {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })}
@@ -195,91 +198,82 @@ function BalanceIndicator({ wfBalance, lmBalance }: BalanceIndicatorProps) {
   );
 }
 
-// ─── Main table ───────────────────────────────────────────────────────────────
+// ─── Row ─────────────────────────────────────────────────────────────────────
 
-interface AccountLinkTableProps {
-  lmAccounts: LunchmoneyAccount[];
-  wfAccounts: Account[];
-  draft: AccountMapping;
-  savedMapping: AccountMapping;
-  wfCashBalances: Record<string, number>;
+interface AccountRowProps {
+  row: AccountRowVM;
+  vm: AccountViewModel;
   onDraftChange: (lmId: number, entry: MappingEntry) => void;
   onNavigate: (path: string) => void;
 }
 
-export function AccountLinkTable({
-  lmAccounts,
-  wfAccounts,
-  draft,
-  savedMapping,
-  wfCashBalances,
-  onDraftChange,
-  onNavigate,
-}: AccountLinkTableProps) {
-  const grouped = lmAccounts.reduce<Record<string, LunchmoneyAccount[]>>((acc, a) => {
-    const key = a.institution_name || "Other";
-    (acc[key] ??= []).push(a);
-    return acc;
-  }, {});
+function AccountRow({ row, vm, onDraftChange, onNavigate }: AccountRowProps) {
+  return (
+    <div className="flex items-center gap-3 p-4">
+      {/* Status icon */}
+      {row.isLinked ? (
+        <Icons.CheckCircle className="h-5 w-5 shrink-0 text-green-500" />
+      ) : (
+        <Icons.Circle className="text-muted-foreground/40 h-5 w-5 shrink-0" />
+      )}
 
+      {/* LM account details */}
+      <div className="min-w-0 flex-1">
+        <LmAccountInfo acc={row.lm} isLinked={row.isLinked} />
+      </div>
+
+      <Icons.ArrowRight className="text-muted-foreground h-4 w-4 shrink-0" />
+
+      {/* WF account details */}
+      <div className="min-w-0 flex-1">
+        <WfAccountInfo entry={row.entry} wfAccount={row.wfAccount} onNavigate={onNavigate} />
+      </div>
+
+      {/* Menu button to change WF account */}
+      <WfAccountMenuButton
+        lmId={row.lm.id}
+        wfAccounts={vm.wfAccounts}
+        claimedWfIds={vm.claimedWfIds}
+        currentEntry={row.entry}
+        onDraftChange={onDraftChange}
+      />
+
+      {/* Balance indicator */}
+      <BalanceIndicator
+        wfBalance={row.wfBalance}
+        balanceDelta={row.balanceDelta}
+        balancesMatch={row.balancesMatch}
+      />
+    </div>
+  );
+}
+
+// ─── Main table ───────────────────────────────────────────────────────────────
+
+interface AccountLinkTableProps {
+  vm: AccountViewModel;
+  onDraftChange: (lmId: number, entry: MappingEntry) => void;
+  onNavigate: (path: string) => void;
+}
+
+export function AccountLinkTable({ vm, onDraftChange, onNavigate }: AccountLinkTableProps) {
   return (
     <div className="mt-4 space-y-6">
-      {Object.entries(grouped).map(([institution, rows]) => (
+      {vm.groups.map(({ institution, rows }) => (
         <div key={institution}>
           <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wider uppercase">
             {institution}
           </h3>
           <div className="bg-card divide-y overflow-hidden rounded-md border">
-            {rows.map((acc) => {
-              const entry = draft[acc.id];
-              const isLinked = entry?.type === "existing" || entry?.type === "create";
-
-              const savedEntry = savedMapping[acc.id];
-              const wfAccount =
-                entry?.type === "existing"
-                  ? wfAccounts.find((w) => String(w.id) === entry.wfAccountId)
-                  : undefined;
-
-              const lmBalance = parseFloat(acc.balance);
-              const wfBalance =
-                savedEntry?.type === "existing" && savedEntry.wfAccountId in wfCashBalances
-                  ? wfCashBalances[savedEntry.wfAccountId]
-                  : null;
-
-              return (
-                <div key={acc.id} className="flex items-center gap-3 p-4">
-                  {/* Status icon */}
-                  {isLinked ? (
-                    <Icons.CheckCircle className="h-5 w-5 shrink-0 text-green-500" />
-                  ) : (
-                    <Icons.Circle className="text-muted-foreground/40 h-5 w-5 shrink-0" />
-                  )}
-
-                  {/* LM account details */}
-                  <div className="min-w-0 flex-1">
-                    <LmAccountInfo acc={acc} isLinked={isLinked} />
-                  </div>
-
-                  <Icons.ArrowRight className="text-muted-foreground h-4 w-4 shrink-0" />
-
-                  {/* WF account details */}
-                  <div className="min-w-0 flex-1">
-                    <WfAccountInfo entry={entry} wfAccount={wfAccount} onNavigate={onNavigate} />
-                  </div>
-
-                  {/* Menu button to change WF account */}
-                  <WfAccountMenuButton
-                    lmId={acc.id}
-                    wfAccounts={wfAccounts}
-                    draft={draft}
-                    onDraftChange={onDraftChange}
-                  />
-
-                  {/* Balance indicator */}
-                  <BalanceIndicator wfBalance={wfBalance} lmBalance={lmBalance} />
-                </div>
-              );
-            })}
+            {rows.map((row) => (
+              <AccountRow
+                key={row.lm.id}
+                row={row}
+                vm={vm}
+                onDraftChange={onDraftChange}
+                onNavigate={onNavigate}
+              />
+            ))}
           </div>
         </div>
       ))}
