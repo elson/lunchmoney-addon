@@ -8,6 +8,18 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-03-19
+
+### Added
+
+- Introduce AccountViewModel to unify derived account state
+- Deepen AccountViewModel by absorbing classifyChanges and filterAccounts
+
+### Changed
+
+- Extract SyncEngine from useAccountSync to enable plain async testing
+- Encapsulate API key secret and collapse useAccountSync state
+
 ## [0.3.3] - 2026-03-18
 
 ### Fixed
