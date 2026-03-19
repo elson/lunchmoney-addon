@@ -260,16 +260,74 @@ describe("buildAccountViewModel", () => {
       expect(vm.changes.hasChanges).toBe(true);
     });
 
+    it("classifies a new link when saved was ignore type", () => {
+      const draft: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
+      const saved: AccountMapping = { 1: { type: "ignore" } };
+      const vm = buildAccountViewModel([lm(1)], [wf("w1")], draft, saved, {});
+      expect(vm.changes.toLink).toHaveLength(1);
+    });
+
     it("classifies toCreate correctly", () => {
       const draft: AccountMapping = { 1: { type: "create" } };
       const vm = buildAccountViewModel([lm(1)], [], draft, {}, {});
       expect(vm.changes.toCreate).toHaveLength(1);
     });
 
+    it("classifies create with wasLinkedTo when previously linked", () => {
+      const draft: AccountMapping = { 1: { type: "create" } };
+      const saved: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
+      const vm = buildAccountViewModel([lm(1)], [wf("w1")], draft, saved, {});
+      expect(vm.changes.toCreate[0].wasLinkedTo?.name).toBe("WF w1");
+    });
+
     it("classifies toUnlink correctly", () => {
       const saved: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
       const vm = buildAccountViewModel([lm(1)], [wf("w1")], {}, saved, {});
       expect(vm.changes.toUnlink).toHaveLength(1);
+    });
+
+    it("classifies unlink when saved=existing and draft=ignore", () => {
+      const draft: AccountMapping = { 1: { type: "ignore" } };
+      const saved: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
+      const vm = buildAccountViewModel([lm(1)], [wf("w1")], draft, saved, {});
+      expect(vm.changes.toUnlink).toHaveLength(1);
+      expect(vm.changes.hasChanges).toBe(true);
+    });
+
+    it("classifies a relink when wf account changes", () => {
+      const draft: AccountMapping = { 1: { type: "existing", wfAccountId: "w2" } };
+      const saved: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
+      const vm = buildAccountViewModel([lm(1)], [wf("w1"), wf("w2")], draft, saved, {});
+      expect(vm.changes.toRelink).toHaveLength(1);
+      expect(vm.changes.toRelink[0].from.name).toBe("WF w1");
+      expect(vm.changes.toRelink[0].to.name).toBe("WF w2");
+    });
+
+    it("classifies as link (not relink) when old wf account is missing", () => {
+      const draft: AccountMapping = { 1: { type: "existing", wfAccountId: "w2" } };
+      const saved: AccountMapping = { 1: { type: "existing", wfAccountId: "gone" } };
+      const vm = buildAccountViewModel([lm(1)], [wf("w2")], draft, saved, {});
+      expect(vm.changes.toLink).toHaveLength(1);
+      expect(vm.changes.toRelink).toHaveLength(0);
+    });
+
+    it("classifies unchanged link", () => {
+      const entry = { type: "existing" as const, wfAccountId: "w1" };
+      const vm = buildAccountViewModel([lm(1)], [wf("w1")], { 1: entry }, { 1: entry }, {});
+      expect(vm.changes.unchanged).toHaveLength(1);
+      expect(vm.changes.hasChanges).toBe(false);
+    });
+
+    it("skips entries with unknown lm ids", () => {
+      const draft: AccountMapping = { 99: { type: "create" } };
+      const vm = buildAccountViewModel([], [], draft, {}, {});
+      expect(vm.changes.toCreate).toHaveLength(0);
+    });
+
+    it("skips existing entries when wf account is missing", () => {
+      const draft: AccountMapping = { 1: { type: "existing", wfAccountId: "missing" } };
+      const vm = buildAccountViewModel([lm(1)], [], draft, {}, {});
+      expect(vm.changes.toLink).toHaveLength(0);
     });
 
     it("returns same object reference on repeated access (memoized)", () => {
@@ -282,6 +340,105 @@ describe("buildAccountViewModel", () => {
       const entry = { type: "existing" as const, wfAccountId: "w1" };
       const vm = buildAccountViewModel([lm(1)], [wf("w1")], { 1: entry }, { 1: entry }, {});
       expect(vm.changes.hasChanges).toBe(false);
+    });
+  });
+
+  describe("filtered()", () => {
+    const accounts = [
+      lm(1, { name: "Checking", display_name: "My Checking", institution_name: "Big Bank" }),
+      lm(2, { name: "Savings", institution_name: "Big Bank" }),
+      lm(3, { name: "Credit Card" }),
+    ];
+
+    it("returns all rows with empty search and tab=all", () => {
+      const vm = buildAccountViewModel(accounts, [], {}, {}, {});
+      const filtered = vm.filtered("", "all");
+      expect(filtered.rows).toHaveLength(3);
+    });
+
+    it("returns this (identity) when search is empty and tab is all", () => {
+      const vm = buildAccountViewModel(accounts, [], {}, {}, {});
+      expect(vm.filtered("", "all")).toBe(vm);
+    });
+
+    it("filters by name", () => {
+      const vm = buildAccountViewModel(accounts, [], {}, {}, {});
+      const filtered = vm.filtered("savings", "all");
+      expect(filtered.rows.map((r) => r.lm.id)).toEqual([2]);
+    });
+
+    it("filters by display_name", () => {
+      const vm = buildAccountViewModel(accounts, [], {}, {}, {});
+      const filtered = vm.filtered("my checking", "all");
+      expect(filtered.rows.map((r) => r.lm.id)).toEqual([1]);
+    });
+
+    it("filters by institution_name", () => {
+      const vm = buildAccountViewModel(accounts, [], {}, {}, {});
+      const filtered = vm.filtered("big bank", "all");
+      expect(filtered.rows.map((r) => r.lm.id)).toEqual([1, 2]);
+    });
+
+    it("is case-insensitive", () => {
+      const vm = buildAccountViewModel(accounts, [], {}, {}, {});
+      expect(vm.filtered("BIG BANK", "all").rows).toHaveLength(2);
+    });
+
+    it("returns linked accounts only when tab=linked", () => {
+      const draft: AccountMapping = {
+        1: { type: "existing", wfAccountId: "w1" },
+        2: { type: "create" },
+      };
+      const vm = buildAccountViewModel(accounts, [wf("w1")], draft, {}, {});
+      const filtered = vm.filtered("", "linked");
+      expect(filtered.rows.map((r) => r.lm.id)).toEqual([1, 2]);
+    });
+
+    it("returns skipped accounts only when tab=skipped", () => {
+      const draft: AccountMapping = {
+        1: { type: "existing", wfAccountId: "w1" },
+        2: { type: "ignore" },
+      };
+      const vm = buildAccountViewModel(accounts, [wf("w1")], draft, {}, {});
+      const filtered = vm.filtered("", "skipped");
+      expect(filtered.rows.map((r) => r.lm.id)).toEqual([2, 3]);
+    });
+
+    it("combines search query with tab filter", () => {
+      const draft: AccountMapping = {
+        1: { type: "existing", wfAccountId: "w1" },
+        2: { type: "existing", wfAccountId: "w2" },
+      };
+      const vm = buildAccountViewModel(accounts, [wf("w1"), wf("w2")], draft, {}, {});
+      const filtered = vm.filtered("big bank", "linked");
+      expect(filtered.rows.map((r) => r.lm.id)).toEqual([1, 2]);
+    });
+
+    it("re-groups filtered rows by institution", () => {
+      const vm = buildAccountViewModel(accounts, [], {}, {}, {});
+      const filtered = vm.filtered("big bank", "all");
+      expect(filtered.groups).toHaveLength(1);
+      expect(filtered.groups[0].institution).toBe("Big Bank");
+      expect(filtered.groups[0].rows).toHaveLength(2);
+    });
+
+    it("shares aggregate state with the parent vm", () => {
+      const draft: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
+      const saved: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
+      const vm = buildAccountViewModel(accounts, [wf("w1")], draft, saved, {});
+      const filtered = vm.filtered("savings", "all");
+      // linkedCount is over ALL accounts, not just filtered
+      expect(filtered.linkedCount).toBe(vm.linkedCount);
+      expect(filtered.isDirty).toBe(vm.isDirty);
+      expect(filtered.claimedWfIds).toBe(vm.claimedWfIds);
+      expect(filtered.wfAccounts).toBe(vm.wfAccounts);
+    });
+
+    it("returns empty rows when no accounts match", () => {
+      const vm = buildAccountViewModel(accounts, [], {}, {}, {});
+      const filtered = vm.filtered("zzznomatch", "all");
+      expect(filtered.rows).toHaveLength(0);
+      expect(filtered.groups).toHaveLength(0);
     });
   });
 });
