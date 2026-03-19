@@ -1,8 +1,92 @@
 import type { Account } from "@wealthfolio/addon-sdk";
 import type { LunchmoneyAccount } from "./lunchmoney";
 import type { AccountMapping, MappingEntry } from "../types";
-import { classifyChanges, type ChangeClassification } from "./classifyChanges";
 import { mappingsEqual } from "./mapping";
+
+export type FilterTab = "all" | "linked" | "skipped";
+
+export interface ChangeClassification {
+  toCreate: { lm: LunchmoneyAccount; wasLinkedTo?: Account }[];
+  toLink: { lm: LunchmoneyAccount; wf: Account }[];
+  toRelink: { lm: LunchmoneyAccount; from: Account; to: Account }[];
+  toUnlink: { lm: LunchmoneyAccount; wf: Account }[];
+  unchanged: { lm: LunchmoneyAccount; wf: Account }[];
+  hasChanges: boolean;
+}
+
+function classifyChanges(
+  draft: AccountMapping,
+  savedMapping: AccountMapping,
+  lmAccounts: LunchmoneyAccount[],
+  wfAccounts: Account[],
+): ChangeClassification {
+  const lmById = Object.fromEntries(lmAccounts.map((a) => [a.id, a]));
+  const wfById = Object.fromEntries(wfAccounts.map((a) => [String(a.id), a]));
+
+  const toCreate: { lm: LunchmoneyAccount; wasLinkedTo?: Account }[] = [];
+  const toLink: { lm: LunchmoneyAccount; wf: Account }[] = [];
+  const toRelink: { lm: LunchmoneyAccount; from: Account; to: Account }[] = [];
+  const toUnlink: { lm: LunchmoneyAccount; wf: Account }[] = [];
+  const unchanged: { lm: LunchmoneyAccount; wf: Account }[] = [];
+
+  for (const [idStr, entry] of Object.entries(draft)) {
+    const lmId = Number(idStr);
+    const lm = lmById[lmId];
+    if (!lm) continue;
+    const saved = savedMapping[lmId];
+
+    if (entry.type === "create") {
+      const wasLinkedTo = saved?.type === "existing" ? wfById[saved.wfAccountId] : undefined;
+      toCreate.push({ lm, wasLinkedTo });
+    } else if (entry.type === "existing") {
+      const wf = wfById[entry.wfAccountId];
+      if (!wf) continue;
+      if (!saved || saved.type === "ignore") {
+        toLink.push({ lm, wf });
+      } else if (saved.type === "existing") {
+        if (saved.wfAccountId === entry.wfAccountId) {
+          unchanged.push({ lm, wf });
+        } else {
+          const from = wfById[saved.wfAccountId];
+          if (from) {
+            toRelink.push({ lm, from, to: wf });
+          } else {
+            toLink.push({ lm, wf });
+          }
+        }
+      }
+    }
+  }
+
+  for (const [idStr, saved] of Object.entries(savedMapping)) {
+    if (saved.type !== "existing") continue;
+    const lmId = Number(idStr);
+    const draftEntry = draft[lmId];
+    if (!draftEntry || draftEntry.type === "ignore") {
+      const lm = lmById[lmId];
+      const wf = wfById[saved.wfAccountId];
+      if (lm && wf) toUnlink.push({ lm, wf });
+    }
+  }
+
+  const hasChanges =
+    toCreate.length > 0 || toLink.length > 0 || toRelink.length > 0 || toUnlink.length > 0;
+
+  return { toCreate, toLink, toRelink, toUnlink, unchanged, hasChanges };
+}
+
+function buildGroups(rows: AccountRowVM[]): AccountRowGroup[] {
+  const groupMap = new Map<string, AccountRowVM[]>();
+  for (const row of rows) {
+    const key = row.lm.institution_name || "Other";
+    if (!groupMap.has(key)) groupMap.set(key, []);
+    groupMap.get(key)!.push(row);
+  }
+  return Array.from(groupMap.entries()).map(([institution, groupRows]) => ({
+    institution,
+    rows: groupRows,
+  }));
+}
 
 export interface AccountRowVM {
   readonly lm: LunchmoneyAccount;
@@ -29,6 +113,13 @@ export interface AccountViewModel {
   readonly claimedWfIds: ReadonlySet<string>;
   /** Lazy — classifyChanges only runs on first access. */
   readonly changes: ChangeClassification;
+  /**
+   * Returns a new view with rows/groups filtered by search text and tab.
+   * Aggregate properties (linkedCount, isDirty, changes, claimedWfIds, wfAccounts)
+   * are shared — not recomputed.
+   * Returns `this` when search is empty and tab is "all".
+   */
+  filtered(search: string, tab: FilterTab): AccountViewModel;
 }
 
 export function buildAccountViewModel(
@@ -66,16 +157,7 @@ export function buildAccountViewModel(
     return { lm, entry, isLinked, wfAccount, lmBalance, wfBalance, balanceDelta, balancesMatch };
   });
 
-  // Group rows by institution (preserving encounter order)
-  const groupMap = new Map<string, AccountRowVM[]>();
-  for (const row of rows) {
-    const key = row.lm.institution_name || "Other";
-    if (!groupMap.has(key)) groupMap.set(key, []);
-    groupMap.get(key)!.push(row);
-  }
-  const groups: AccountRowGroup[] = Array.from(groupMap.entries()).map(
-    ([institution, groupRows]) => ({ institution, rows: groupRows }),
-  );
+  const groups = buildGroups(rows);
 
   // Count only "existing" entries in savedMapping (intentional — "create" entries aren't saved yet)
   const linkedCount = Object.values(savedMapping).filter((e) => e.type === "existing").length;
@@ -93,12 +175,45 @@ export function buildAccountViewModel(
     isDirty,
     claimedWfIds: claimed,
   } as unknown as AccountViewModel;
+
   Object.defineProperty(vm, "changes", {
     get() {
       if (!cachedChanges) {
         cachedChanges = classifyChanges(draft, savedMapping, lmAccounts, wfAccounts);
       }
       return cachedChanges;
+    },
+    enumerable: true,
+  });
+  Object.defineProperty(vm, "filtered", {
+    value(search: string, tab: FilterTab): AccountViewModel {
+      if (!search.trim() && tab === "all") return vm;
+      const query = search.trim().toLowerCase();
+      const filteredRows = rows.filter((row) => {
+        if (query) {
+          const haystack = [row.lm.name, row.lm.display_name ?? "", row.lm.institution_name ?? ""]
+            .join(" ")
+            .toLowerCase();
+          if (!haystack.includes(query)) return false;
+        }
+        if (tab === "linked") return row.isLinked;
+        if (tab === "skipped") return !row.isLinked;
+        return true;
+      });
+      return {
+        rows: filteredRows,
+        groups: buildGroups(filteredRows),
+        wfAccounts,
+        linkedCount,
+        isDirty,
+        claimedWfIds: claimed,
+        get changes() {
+          return vm.changes;
+        },
+        get filtered() {
+          return (vm as unknown as { filtered: AccountViewModel["filtered"] }).filtered;
+        },
+      } as unknown as AccountViewModel;
     },
     enumerable: true,
   });

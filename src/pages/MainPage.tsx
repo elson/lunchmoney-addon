@@ -15,7 +15,6 @@ import {
 } from "@wealthfolio/ui";
 import { AccountLinkTable, ConfirmSaveDialog } from "../components";
 import { useAccountSync } from "../hooks";
-import { filterAccounts } from "../lib/filterAccounts";
 import { buildAccountViewModel } from "../lib/accountViewModel";
 
 export function MainPage({ ctx }: { ctx: AddonContext }) {
@@ -42,8 +41,7 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
     handleSyncBalances,
   } = useAccountSync(ctx, false);
 
-  // Unfiltered VM — used for linkedCount, isDirty, and the confirm dialog
-  const unfilteredVm = useMemo(
+  const vm = useMemo(
     () =>
       lmAccounts && wfAccounts
         ? buildAccountViewModel(lmAccounts, wfAccounts, draft, savedMapping, wfCashBalances)
@@ -51,20 +49,8 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
     [lmAccounts, wfAccounts, draft, savedMapping, wfCashBalances],
   );
 
-  // Filtered VM — used for the table
-  const tableVm = useMemo(
-    () =>
-      lmAccounts && wfAccounts
-        ? buildAccountViewModel(
-            filterAccounts(lmAccounts, search, filterTab, draft),
-            wfAccounts,
-            draft,
-            savedMapping,
-            wfCashBalances,
-          )
-        : null,
-    [lmAccounts, wfAccounts, search, filterTab, draft, savedMapping, wfCashBalances],
-  );
+  // Filtered view — rows/groups filtered by search + tab; aggregate state shared from vm
+  const tableVm = useMemo(() => vm?.filtered(search, filterTab) ?? null, [vm, search, filterTab]);
 
   // Re-render the "X ago" label every minute
   const [, setTick] = useState(0);
@@ -73,8 +59,8 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
     return () => clearInterval(id);
   }, []);
 
-  const linkedCount = unfilteredVm?.linkedCount ?? 0;
-  const isDirty = unfilteredVm?.isDirty ?? false;
+  const linkedCount = vm?.linkedCount ?? 0;
+  const isDirty = vm?.isDirty ?? false;
 
   return (
     <Page>
@@ -149,7 +135,7 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
           <p className="text-muted-foreground text-sm">No accounts found.</p>
         )}
 
-        {tableVm && unfilteredVm && lmAccounts && lmAccounts.length > 0 && (
+        {tableVm && vm && lmAccounts && lmAccounts.length > 0 && (
           <>
             <div className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="relative flex-1 sm:max-w-sm">
@@ -226,7 +212,7 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
 
             <ConfirmSaveDialog
               open={showConfirm}
-              vm={unfilteredVm}
+              vm={vm}
               onConfirm={async () => {
                 setShowConfirm(false);
                 await handleConfirm();
