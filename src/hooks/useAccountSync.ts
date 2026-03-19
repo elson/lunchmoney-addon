@@ -1,54 +1,66 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { AddonContext, Account } from "@wealthfolio/addon-sdk";
-import { fetchAllAccounts, type LunchmoneyAccount } from "../lib/lunchmoney";
+import { fetchAllAccounts, getApiKey, type LunchmoneyAccount } from "../lib/lunchmoney";
 import { createWfAccountFromLm, saveSnapshot } from "../lib/wealthfolio";
-import { API_KEY_SECRET } from "../lib/secrets";
 import {
   loadMapping,
   saveMapping,
   loadLastSynced,
   saveLastSynced,
-  mappingsEqual,
   cleanMapping,
 } from "../lib/mapping";
 import type { AccountMapping, MappingEntry } from "../types";
+import { buildAccountViewModel, type AccountViewModel } from "../lib/accountViewModel";
 
-interface AccountSyncState {
-  lmAccounts: LunchmoneyAccount[] | null;
-  wfAccounts: Account[] | null;
-  savedMapping: AccountMapping;
-  draft: AccountMapping;
-  loading: boolean;
+export type SyncPhase = "checking" | "no-api-key" | "loading" | "empty" | "ready";
+
+export type SyncStatus =
+  | { phase: "checking" }
+  | { phase: "no-api-key" }
+  | { phase: "loading" }
+  | { phase: "empty" }
+  | { phase: "ready"; vm: AccountViewModel };
+
+export interface AccountSyncController {
+  status: SyncStatus;
   error: string | null;
-  hasApiKey: boolean | null;
-  isSaving: boolean;
-  isDirty: boolean;
   lastSynced: Date | null;
-  isSyncingBalances: boolean;
-  /** wfAccountId → cashBalance from latest portfolio valuation */
-  wfCashBalances: Record<string, number>;
+  busy: {
+    saving: boolean;
+    syncing: boolean;
+    refreshing: boolean;
+  };
+  actions: {
+    refresh: () => void;
+    changeDraft: (lmId: number, entry: MappingEntry) => void;
+    undo: () => void;
+    confirm: () => Promise<void>;
+    syncBalances: () => Promise<void>;
+  };
 }
 
-interface AccountSyncActions {
-  handleRefresh: () => void;
-  handleDraftChange: (lmId: number, entry: MappingEntry) => void;
-  handleConfirm: () => Promise<void>;
-  handleUndo: () => void;
-  handleSyncBalances: () => Promise<void>;
+export function deriveStatus(
+  apiKey: string | null | undefined,
+  loading: boolean,
+  lmAccounts: LunchmoneyAccount[] | null,
+  vm: AccountViewModel | null,
+): SyncStatus {
+  if (apiKey === undefined) return { phase: "checking" };
+  if (apiKey === null) return { phase: "no-api-key" };
+  if (loading) return { phase: "loading" };
+  if (lmAccounts?.length === 0) return { phase: "empty" };
+  if (vm) return { phase: "ready", vm };
+  return { phase: "checking" };
 }
 
-export function useAccountSync(
-  ctx: AddonContext,
-  paused: boolean,
-): AccountSyncState & AccountSyncActions {
-  const [apiKey, setApiKey] = useState<string | null>(null);
+export function useAccountSync(ctx: AddonContext, paused: boolean): AccountSyncController {
+  const [apiKey, setApiKeyState] = useState<string | null | undefined>(undefined);
   const [lmAccounts, setLmAccounts] = useState<LunchmoneyAccount[] | null>(null);
   const [wfAccounts, setWfAccounts] = useState<Account[] | null>(null);
   const [savedMapping, setSavedMapping] = useState<AccountMapping>({});
   const [draft, setDraft] = useState<AccountMapping>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSynced, setLastSynced] = useState<Date | null>(() => loadLastSynced());
   const [isSyncingBalances, setIsSyncingBalances] = useState(false);
@@ -56,9 +68,8 @@ export function useAccountSync(
 
   useEffect(() => {
     if (paused) return;
-    ctx.api.secrets.get(API_KEY_SECRET).then((key) => {
-      setHasApiKey(!!key);
-      setApiKey(key);
+    getApiKey(ctx).then((key) => {
+      setApiKeyState(key);
       if (key) {
         loadAll(key);
       } else {
@@ -192,23 +203,25 @@ export function useAccountSync(
     }
   }
 
+  const vm = useMemo(
+    () =>
+      lmAccounts && wfAccounts
+        ? buildAccountViewModel(lmAccounts, wfAccounts, draft, savedMapping, wfCashBalances)
+        : null,
+    [lmAccounts, wfAccounts, draft, savedMapping, wfCashBalances],
+  );
+
   return {
-    lmAccounts,
-    wfAccounts,
-    savedMapping,
-    draft,
-    loading,
+    status: deriveStatus(apiKey, loading, lmAccounts, vm),
     error,
-    hasApiKey,
-    isSaving,
-    isDirty: !mappingsEqual(draft, savedMapping),
     lastSynced,
-    isSyncingBalances,
-    wfCashBalances,
-    handleRefresh,
-    handleDraftChange,
-    handleUndo,
-    handleConfirm,
-    handleSyncBalances,
+    busy: { saving: isSaving, syncing: isSyncingBalances, refreshing: loading },
+    actions: {
+      refresh: handleRefresh,
+      changeDraft: handleDraftChange,
+      undo: handleUndo,
+      confirm: handleConfirm,
+      syncBalances: handleSyncBalances,
+    },
   };
 }

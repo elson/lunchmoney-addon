@@ -122,6 +122,46 @@ export interface AccountViewModel {
   filtered(search: string, tab: FilterTab): AccountViewModel;
 }
 
+interface ViewModelCore {
+  readonly wfAccounts: readonly Account[];
+  readonly linkedCount: number;
+  readonly isDirty: boolean;
+  readonly claimedWfIds: ReadonlySet<string>;
+  readonly lazyChanges: () => ChangeClassification;
+}
+
+function createView(rows: readonly AccountRowVM[], core: ViewModelCore): AccountViewModel {
+  const groups = buildGroups(rows as AccountRowVM[]);
+  const vm: AccountViewModel = {
+    rows,
+    groups,
+    wfAccounts: core.wfAccounts,
+    linkedCount: core.linkedCount,
+    isDirty: core.isDirty,
+    claimedWfIds: core.claimedWfIds,
+    get changes() {
+      return core.lazyChanges();
+    },
+    filtered(search: string, tab: FilterTab): AccountViewModel {
+      if (!search.trim() && tab === "all") return vm;
+      const query = search.trim().toLowerCase();
+      const filteredRows = (rows as AccountRowVM[]).filter((row) => {
+        if (query) {
+          const haystack = [row.lm.name, row.lm.display_name ?? "", row.lm.institution_name ?? ""]
+            .join(" ")
+            .toLowerCase();
+          if (!haystack.includes(query)) return false;
+        }
+        if (tab === "linked") return row.isLinked;
+        if (tab === "skipped") return !row.isLinked;
+        return true;
+      });
+      return createView(filteredRows, core);
+    },
+  };
+  return vm;
+}
+
 export function buildAccountViewModel(
   lmAccounts: LunchmoneyAccount[],
   wfAccounts: Account[],
@@ -157,65 +197,19 @@ export function buildAccountViewModel(
     return { lm, entry, isLinked, wfAccount, lmBalance, wfBalance, balanceDelta, balancesMatch };
   });
 
-  const groups = buildGroups(rows);
-
   // Count only "existing" entries in savedMapping (intentional — "create" entries aren't saved yet)
   const linkedCount = Object.values(savedMapping).filter((e) => e.type === "existing").length;
-
   const isDirty = !mappingsEqual(draft, savedMapping);
 
-  // Lazy getter — change classification is deferred until first access
   let cachedChanges: ChangeClassification | undefined;
-
-  const vm = {
-    rows,
-    groups,
+  const core: ViewModelCore = {
     wfAccounts,
     linkedCount,
     isDirty,
     claimedWfIds: claimed,
-  } as unknown as AccountViewModel;
+    lazyChanges: () =>
+      (cachedChanges ??= classifyChanges(draft, savedMapping, lmAccounts, wfAccounts)),
+  };
 
-  Object.defineProperty(vm, "changes", {
-    get() {
-      if (!cachedChanges) {
-        cachedChanges = classifyChanges(draft, savedMapping, lmAccounts, wfAccounts);
-      }
-      return cachedChanges;
-    },
-    enumerable: true,
-  });
-  Object.defineProperty(vm, "filtered", {
-    value(search: string, tab: FilterTab): AccountViewModel {
-      if (!search.trim() && tab === "all") return vm;
-      const query = search.trim().toLowerCase();
-      const filteredRows = rows.filter((row) => {
-        if (query) {
-          const haystack = [row.lm.name, row.lm.display_name ?? "", row.lm.institution_name ?? ""]
-            .join(" ")
-            .toLowerCase();
-          if (!haystack.includes(query)) return false;
-        }
-        if (tab === "linked") return row.isLinked;
-        if (tab === "skipped") return !row.isLinked;
-        return true;
-      });
-      return {
-        rows: filteredRows,
-        groups: buildGroups(filteredRows),
-        wfAccounts,
-        linkedCount,
-        isDirty,
-        claimedWfIds: claimed,
-        get changes() {
-          return vm.changes;
-        },
-        get filtered() {
-          return (vm as unknown as { filtered: AccountViewModel["filtered"] }).filtered;
-        },
-      } as unknown as AccountViewModel;
-    },
-    enumerable: true,
-  });
-  return vm;
+  return createView(rows, core);
 }

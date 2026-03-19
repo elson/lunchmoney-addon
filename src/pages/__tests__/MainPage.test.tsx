@@ -4,9 +4,10 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { MainPage } from "../MainPage";
 import { createMockCtx } from "../../test/mockCtx";
+import type { AccountSyncController } from "../../hooks/useAccountSync";
+import { buildAccountViewModel } from "../../lib/accountViewModel";
 import type { LunchmoneyAccount } from "../../lib/lunchmoney";
 import type { Account } from "@wealthfolio/addon-sdk";
-import type { AccountMapping } from "../../types";
 
 vi.mock("../../hooks/useAccountSync");
 vi.mock("date-fns", () => ({
@@ -37,69 +38,63 @@ const wf = (id: string): Account =>
     trackingMode: "HOLDINGS",
   }) as unknown as Account;
 
-const defaultHookState = {
-  lmAccounts: null as LunchmoneyAccount[] | null,
-  wfAccounts: null as Account[] | null,
-  savedMapping: {} as AccountMapping,
-  draft: {} as AccountMapping,
-  loading: false,
-  error: null as string | null,
-  hasApiKey: null as boolean | null,
-  isSaving: false,
-  isDirty: false,
-  lastSynced: null as Date | null,
-  isSyncingBalances: false,
-  wfCashBalances: {} as Record<string, number>,
-  handleRefresh: vi.fn(),
-  handleDraftChange: vi.fn(),
-  handleUndo: vi.fn(),
-  handleConfirm: vi.fn().mockResolvedValue(undefined),
-  handleSyncBalances: vi.fn().mockResolvedValue(undefined),
-};
+function makeController(overrides: Partial<AccountSyncController> = {}): AccountSyncController {
+  return {
+    status: { phase: "checking" },
+    error: null,
+    lastSynced: null,
+    busy: { saving: false, syncing: false, refreshing: false },
+    actions: {
+      refresh: vi.fn(),
+      changeDraft: vi.fn(),
+      undo: vi.fn(),
+      confirm: vi.fn().mockResolvedValue(undefined),
+      syncBalances: vi.fn().mockResolvedValue(undefined),
+    },
+    ...overrides,
+  };
+}
+
+function readyController(
+  lmAccounts: LunchmoneyAccount[],
+  wfAccounts: Account[],
+  draft = {} as Record<number, import("../../types").MappingEntry>,
+  savedMapping = {} as Record<number, import("../../types").MappingEntry>,
+  overrides: Partial<AccountSyncController> = {},
+): AccountSyncController {
+  const vm = buildAccountViewModel(lmAccounts, wfAccounts, draft, savedMapping, {});
+  return makeController({
+    status: { phase: "ready", vm },
+    ...overrides,
+  });
+}
 
 beforeEach(() => {
-  vi.mocked(useAccountSync).mockReturnValue({ ...defaultHookState });
+  vi.mocked(useAccountSync).mockReturnValue(makeController());
 });
 
 describe("MainPage", () => {
   it("shows loading state", () => {
-    vi.mocked(useAccountSync).mockReturnValue({
-      ...defaultHookState,
-      hasApiKey: null,
-      loading: true,
-    });
+    vi.mocked(useAccountSync).mockReturnValue(makeController());
     render(<MainPage ctx={createMockCtx()} />);
     expect(screen.getByText("Loading…")).toBeInTheDocument();
   });
 
   it("shows no API key placeholder", () => {
-    vi.mocked(useAccountSync).mockReturnValue({
-      ...defaultHookState,
-      hasApiKey: false,
-    });
+    vi.mocked(useAccountSync).mockReturnValue(makeController({ status: { phase: "no-api-key" } }));
     render(<MainPage ctx={createMockCtx()} />);
     expect(screen.getByTestId("empty-placeholder")).toBeInTheDocument();
     expect(screen.getByText("No API key set")).toBeInTheDocument();
   });
 
-  it("shows 'No accounts found' when lmAccounts is empty", () => {
-    vi.mocked(useAccountSync).mockReturnValue({
-      ...defaultHookState,
-      hasApiKey: true,
-      lmAccounts: [],
-      wfAccounts: [],
-    });
+  it("shows 'No accounts found' when status is empty", () => {
+    vi.mocked(useAccountSync).mockReturnValue(makeController({ status: { phase: "empty" } }));
     render(<MainPage ctx={createMockCtx()} />);
     expect(screen.getByText("No accounts found.")).toBeInTheDocument();
   });
 
   it("renders search and filter controls when accounts are present", () => {
-    vi.mocked(useAccountSync).mockReturnValue({
-      ...defaultHookState,
-      hasApiKey: true,
-      lmAccounts: [lm(1)],
-      wfAccounts: [wf("w1")],
-    });
+    vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1)], [wf("w1")]));
     render(<MainPage ctx={createMockCtx()} />);
     expect(screen.getByPlaceholderText("Search accounts...")).toBeInTheDocument();
     expect(screen.getByText("all")).toBeInTheDocument();
@@ -108,105 +103,78 @@ describe("MainPage", () => {
   });
 
   it("shows Undo and Save buttons when draft differs from savedMapping", () => {
-    vi.mocked(useAccountSync).mockReturnValue({
-      ...defaultHookState,
-      hasApiKey: true,
-      lmAccounts: [lm(1)],
-      wfAccounts: [wf("w1")],
-      draft: { 1: { type: "create" } },
-    });
+    vi.mocked(useAccountSync).mockReturnValue(
+      readyController([lm(1)], [wf("w1")], { 1: { type: "create" } }, {}),
+    );
     render(<MainPage ctx={createMockCtx()} />);
     expect(screen.getByText("Undo")).toBeInTheDocument();
     expect(screen.getByText("Save Changes")).toBeInTheDocument();
   });
 
   it("hides Undo/Save when isDirty=false", () => {
-    vi.mocked(useAccountSync).mockReturnValue({
-      ...defaultHookState,
-      hasApiKey: true,
-      lmAccounts: [lm(1)],
-      wfAccounts: [wf("w1")],
-    });
+    vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1)], [wf("w1")]));
     render(<MainPage ctx={createMockCtx()} />);
     expect(screen.queryByText("Undo")).toBeNull();
   });
 
   it("shows Import Balances button when linkedCount > 0", () => {
-    vi.mocked(useAccountSync).mockReturnValue({
-      ...defaultHookState,
-      hasApiKey: true,
-      lmAccounts: [lm(1)],
-      wfAccounts: [wf("w1")],
-      savedMapping: { 1: { type: "existing", wfAccountId: "w1" } },
-    });
+    const saved = { 1: { type: "existing" as const, wfAccountId: "w1" } };
+    vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1)], [wf("w1")], saved, saved));
     render(<MainPage ctx={createMockCtx()} />);
     expect(screen.getByText("Import Balances")).toBeInTheDocument();
   });
 
   it("hides Import Balances button when no linked accounts", () => {
-    vi.mocked(useAccountSync).mockReturnValue({
-      ...defaultHookState,
-      hasApiKey: true,
-      lmAccounts: [lm(1)],
-      wfAccounts: [wf("w1")],
-    });
+    vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1)], [wf("w1")]));
     render(<MainPage ctx={createMockCtx()} />);
     expect(screen.queryByText("Import Balances")).toBeNull();
   });
 
   it("opens ConfirmSaveDialog on Save click", async () => {
-    vi.mocked(useAccountSync).mockReturnValue({
-      ...defaultHookState,
-      hasApiKey: true,
-      lmAccounts: [lm(1)],
-      wfAccounts: [wf("w1")],
-      draft: { 1: { type: "create" } },
-    });
+    vi.mocked(useAccountSync).mockReturnValue(
+      readyController([lm(1)], [wf("w1")], { 1: { type: "create" } }, {}),
+    );
     render(<MainPage ctx={createMockCtx()} />);
     await userEvent.click(screen.getByText("Save Changes"));
     expect(screen.getByTestId("dialog")).toBeInTheDocument();
   });
 
   it("switches to linked tab on filter click", async () => {
-    vi.mocked(useAccountSync).mockReturnValue({
-      ...defaultHookState,
-      hasApiKey: true,
-      lmAccounts: [lm(1)],
-      wfAccounts: [wf("w1")],
-    });
+    vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1)], [wf("w1")]));
     render(<MainPage ctx={createMockCtx()} />);
     await userEvent.click(screen.getByText("linked"));
-    // The linked tab button should now be active (no error thrown)
     expect(screen.getByText("linked")).toBeInTheDocument();
   });
 
-  it("calls handleConfirm via dialog onConfirm", async () => {
-    const handleConfirm = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(useAccountSync).mockReturnValue({
-      ...defaultHookState,
-      hasApiKey: true,
-      lmAccounts: [lm(1)],
-      wfAccounts: [wf("w1")],
-      isDirty: true,
-      // draft has a create entry so Confirm button is enabled
-      draft: { 1: { type: "create" } },
-      handleConfirm,
-    });
+  it("calls confirm via dialog onConfirm", async () => {
+    const confirm = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(useAccountSync).mockReturnValue(
+      readyController(
+        [lm(1)],
+        [wf("w1")],
+        { 1: { type: "create" } },
+        {},
+        {
+          actions: {
+            refresh: vi.fn(),
+            changeDraft: vi.fn(),
+            undo: vi.fn(),
+            confirm,
+            syncBalances: vi.fn().mockResolvedValue(undefined),
+          },
+        },
+      ),
+    );
     render(<MainPage ctx={createMockCtx()} />);
     await userEvent.click(screen.getByText("Save Changes"));
-    // Dialog is open — click Confirm (enabled because hasChanges=true)
     await userEvent.click(screen.getByText("Confirm"));
-    expect(handleConfirm).toHaveBeenCalledTimes(1);
+    expect(confirm).toHaveBeenCalledTimes(1);
   });
 
   it("closes dialog on Cancel", async () => {
-    vi.mocked(useAccountSync).mockReturnValue({
-      ...defaultHookState,
-      hasApiKey: true,
-      lmAccounts: [lm(1)],
-      wfAccounts: [wf("w1")],
-      draft: { 1: { type: "create" } },
-    });
+    vi.mocked(useAccountSync).mockReturnValue(
+      readyController([lm(1)], [wf("w1")], { 1: { type: "create" } }, {}),
+    );
     render(<MainPage ctx={createMockCtx()} />);
     await userEvent.click(screen.getByText("Save Changes"));
     await userEvent.click(screen.getByText("Cancel"));
@@ -214,21 +182,13 @@ describe("MainPage", () => {
   });
 
   it("shows error message when error is set", () => {
-    vi.mocked(useAccountSync).mockReturnValue({
-      ...defaultHookState,
-      error: "Something went wrong",
-    });
+    vi.mocked(useAccountSync).mockReturnValue(makeController({ error: "Something went wrong" }));
     render(<MainPage ctx={createMockCtx()} />);
     expect(screen.getByText("Something went wrong")).toBeInTheDocument();
   });
 
   it("shows 'No accounts match your search' for empty filtered list", async () => {
-    vi.mocked(useAccountSync).mockReturnValue({
-      ...defaultHookState,
-      hasApiKey: true,
-      lmAccounts: [lm(1)],
-      wfAccounts: [wf("w1")],
-    });
+    vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1)], [wf("w1")]));
     render(<MainPage ctx={createMockCtx()} />);
     const input = screen.getByPlaceholderText("Search accounts...");
     await userEvent.type(input, "zzz_no_match");
@@ -236,12 +196,7 @@ describe("MainPage", () => {
   });
 
   it("clears search when clear button is clicked", async () => {
-    vi.mocked(useAccountSync).mockReturnValue({
-      ...defaultHookState,
-      hasApiKey: true,
-      lmAccounts: [lm(1)],
-      wfAccounts: [wf("w1")],
-    });
+    vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1)], [wf("w1")]));
     render(<MainPage ctx={createMockCtx()} />);
     const input = screen.getByPlaceholderText("Search accounts...");
     await userEvent.type(input, "zzz");
@@ -250,7 +205,7 @@ describe("MainPage", () => {
   });
 
   it("navigates to settings when Settings button is clicked", async () => {
-    vi.mocked(useAccountSync).mockReturnValue({ ...defaultHookState });
+    vi.mocked(useAccountSync).mockReturnValue(makeController());
     const ctx = createMockCtx();
     render(<MainPage ctx={ctx} />);
     await userEvent.click(screen.getByTitle("Settings"));
@@ -258,7 +213,7 @@ describe("MainPage", () => {
   });
 
   it("navigates to settings from 'Get started' button when no API key", async () => {
-    vi.mocked(useAccountSync).mockReturnValue({ ...defaultHookState, hasApiKey: false });
+    vi.mocked(useAccountSync).mockReturnValue(makeController({ status: { phase: "no-api-key" } }));
     const ctx = createMockCtx();
     render(<MainPage ctx={ctx} />);
     await userEvent.click(screen.getByText("Get started"));
@@ -266,13 +221,8 @@ describe("MainPage", () => {
   });
 
   it("calls navigate when AccountLinkTable onNavigate is triggered", async () => {
-    vi.mocked(useAccountSync).mockReturnValue({
-      ...defaultHookState,
-      hasApiKey: true,
-      lmAccounts: [lm(1)],
-      wfAccounts: [wf("w1")],
-      draft: { 1: { type: "existing", wfAccountId: "w1" } },
-    });
+    const draft = { 1: { type: "existing" as const, wfAccountId: "w1" } };
+    vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1)], [wf("w1")], draft, draft));
     const ctx = createMockCtx();
     render(<MainPage ctx={ctx} />);
     await userEvent.click(screen.getByText("WF w1"));

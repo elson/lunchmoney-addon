@@ -1,28 +1,28 @@
 import React, { useState, useEffect } from "react";
 import type { AddonContext } from "@wealthfolio/addon-sdk";
 import { Button, Input, Label, Page, PageHeader, PageContent, Separator } from "@wealthfolio/ui";
-import { API_KEY_SECRET } from "../lib/secrets";
+import { getApiKey, setApiKey, clearApiKey } from "../lib/lunchmoney";
 
 export default function SettingsPage({ ctx }: { ctx: AddonContext }) {
-  const [apiKey, setApiKey] = useState("");
+  const [apiKeyInput, setApiKeyInput] = useState("");
   const [status, setStatus] = useState<"idle" | "saved" | "cleared">("idle");
 
   useEffect(() => {
-    ctx.api.secrets.get(API_KEY_SECRET).then((val) => {
-      if (val) setApiKey(val);
+    getApiKey(ctx).then((val) => {
+      if (val) setApiKeyInput(val);
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSave() {
-    await ctx.api.secrets.set(API_KEY_SECRET, apiKey);
+    await setApiKey(ctx, apiKeyInput);
     setStatus("saved");
     // c8 ignore next
     setTimeout(() => setStatus("idle"), 2000);
   }
 
   async function handleClear() {
-    await ctx.api.secrets.delete(API_KEY_SECRET);
-    setApiKey("");
+    await clearApiKey(ctx);
+    setApiKeyInput("");
     setStatus("cleared");
     // c8 ignore next
     setTimeout(() => setStatus("idle"), 2000);
@@ -51,13 +51,13 @@ export default function SettingsPage({ ctx }: { ctx: AddonContext }) {
             <Input
               id="api-key"
               type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
+              value={apiKeyInput}
+              onChange={(e) => setApiKeyInput(e.target.value)}
               placeholder="Enter your Lunch Money API key"
             />
           </div>
           <div className="flex items-center gap-2">
-            <Button onClick={handleSave} disabled={!apiKey}>
+            <Button onClick={handleSave} disabled={!apiKeyInput}>
               Save
             </Button>
             <Button variant="outline" onClick={handleClear}>

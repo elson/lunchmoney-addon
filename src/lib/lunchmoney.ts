@@ -1,4 +1,12 @@
+import type { AddonContext } from "@wealthfolio/addon-sdk";
+
 const BASE_URL = "https://api.lunchmoney.dev/v2";
+const API_KEY_SECRET = "lunchmoney-api-key";
+
+export const getApiKey = (ctx: AddonContext) => ctx.api.secrets.get(API_KEY_SECRET);
+export const setApiKey = (ctx: AddonContext, key: string) =>
+  ctx.api.secrets.set(API_KEY_SECRET, key);
+export const clearApiKey = (ctx: AddonContext) => ctx.api.secrets.delete(API_KEY_SECRET);
 
 export interface LunchmoneyAccount {
   id: number;

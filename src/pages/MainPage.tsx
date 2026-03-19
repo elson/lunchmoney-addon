@@ -15,42 +15,18 @@ import {
 } from "@wealthfolio/ui";
 import { AccountLinkTable, ConfirmSaveDialog } from "../components";
 import { useAccountSync } from "../hooks";
-import { buildAccountViewModel } from "../lib/accountViewModel";
 
 export function MainPage({ ctx }: { ctx: AddonContext }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [search, setSearch] = useState("");
   const [filterTab, setFilterTab] = useState<"all" | "linked" | "skipped">("all");
 
-  const {
-    lmAccounts,
-    wfAccounts,
-    savedMapping,
-    draft,
-    loading,
-    error,
-    hasApiKey,
-    isSaving,
-    lastSynced,
-    isSyncingBalances,
-    wfCashBalances,
-    handleRefresh,
-    handleDraftChange,
-    handleUndo,
-    handleConfirm,
-    handleSyncBalances,
-  } = useAccountSync(ctx, false);
+  const { status, error, lastSynced, busy, actions } = useAccountSync(ctx, false);
 
-  const vm = useMemo(
-    () =>
-      lmAccounts && wfAccounts
-        ? buildAccountViewModel(lmAccounts, wfAccounts, draft, savedMapping, wfCashBalances)
-        : null,
-    [lmAccounts, wfAccounts, draft, savedMapping, wfCashBalances],
+  const tableVm = useMemo(
+    () => (status.phase === "ready" ? status.vm.filtered(search, filterTab) : null),
+    [status, search, filterTab],
   );
-
-  // Filtered view — rows/groups filtered by search + tab; aggregate state shared from vm
-  const tableVm = useMemo(() => vm?.filtered(search, filterTab) ?? null, [vm, search, filterTab]);
 
   // Re-render the "X ago" label every minute
   const [, setTick] = useState(0);
@@ -59,8 +35,8 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
     return () => clearInterval(id);
   }, []);
 
-  const linkedCount = vm?.linkedCount ?? 0;
-  const isDirty = vm?.isDirty ?? false;
+  const linkedCount = status.phase === "ready" ? status.vm.linkedCount : 0;
+  const isDirty = status.phase === "ready" && status.vm.isDirty;
 
   return (
     <Page>
@@ -77,10 +53,10 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
             {linkedCount > 0 && (
               <Button
                 size="sm"
-                onClick={handleSyncBalances}
-                disabled={isSyncingBalances || loading}
+                onClick={actions.syncBalances}
+                disabled={busy.syncing || busy.refreshing}
               >
-                {isSyncingBalances ? (
+                {busy.syncing ? (
                   <Icons.Spinner className="h-4 w-4 animate-spin" />
                 ) : (
                   <Icons.Import className="h-4 w-4" />
@@ -92,10 +68,12 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
               variant="outline"
               size="icon"
               title="Refresh Lunch Money accounts"
-              onClick={handleRefresh}
-              disabled={loading || !hasApiKey}
+              onClick={actions.refresh}
+              disabled={
+                busy.refreshing || status.phase === "no-api-key" || status.phase === "checking"
+              }
             >
-              {loading ? (
+              {busy.refreshing ? (
                 <Icons.Loader className="h-4 w-4 animate-spin" />
               ) : (
                 <Icons.Refresh className="h-4 w-4" />
@@ -116,9 +94,9 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
       <PageContent withPadding>
         {error && <p className="text-destructive mb-4 text-sm">{error}</p>}
 
-        {hasApiKey === null && loading && <p className="text-muted-foreground text-sm">Loading…</p>}
+        {status.phase === "checking" && <p className="text-muted-foreground text-sm">Loading…</p>}
 
-        {hasApiKey === false && (
+        {status.phase === "no-api-key" && (
           <EmptyPlaceholder>
             <EmptyPlaceholder.Icon name="Settings" />
             <EmptyPlaceholder.Title>No API key set</EmptyPlaceholder.Title>
@@ -131,11 +109,11 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
           </EmptyPlaceholder>
         )}
 
-        {hasApiKey && lmAccounts?.length === 0 && (
+        {status.phase === "empty" && (
           <p className="text-muted-foreground text-sm">No accounts found.</p>
         )}
 
-        {tableVm && vm && lmAccounts && lmAccounts.length > 0 && (
+        {status.phase === "ready" && tableVm && (
           <>
             <div className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="relative flex-1 sm:max-w-sm">
@@ -187,18 +165,18 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
             {tableVm.rows.length > 0 && (
               <AccountLinkTable
                 vm={tableVm}
-                onDraftChange={handleDraftChange}
+                onDraftChange={actions.changeDraft}
                 onNavigate={(path) => ctx.api.navigation.navigate(path)}
               />
             )}
 
             {isDirty && (
               <div className="mt-4 flex justify-end gap-2">
-                <Button variant="outline" onClick={handleUndo} disabled={isSaving}>
+                <Button variant="outline" onClick={actions.undo} disabled={busy.saving}>
                   Undo
                 </Button>
-                <Button onClick={() => setShowConfirm(true)} disabled={isSaving}>
-                  {isSaving ? (
+                <Button onClick={() => setShowConfirm(true)} disabled={busy.saving}>
+                  {busy.saving ? (
                     <>
                       <Icons.Loader className="mr-2 h-4 w-4 animate-spin" />
                       Saving…
@@ -212,10 +190,10 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
 
             <ConfirmSaveDialog
               open={showConfirm}
-              vm={vm}
+              vm={status.vm}
               onConfirm={async () => {
                 setShowConfirm(false);
-                await handleConfirm();
+                await actions.confirm();
               }}
               onCancel={() => setShowConfirm(false)}
             />
