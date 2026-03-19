@@ -107,13 +107,13 @@ describe("MainPage", () => {
     expect(screen.getByText("skipped")).toBeInTheDocument();
   });
 
-  it("shows Undo and Save buttons when isDirty=true", () => {
+  it("shows Undo and Save buttons when draft differs from savedMapping", () => {
     vi.mocked(useAccountSync).mockReturnValue({
       ...defaultHookState,
       hasApiKey: true,
       lmAccounts: [lm(1)],
       wfAccounts: [wf("w1")],
-      isDirty: true,
+      draft: { 1: { type: "create" } },
     });
     render(<MainPage ctx={createMockCtx()} />);
     expect(screen.getByText("Undo")).toBeInTheDocument();
@@ -160,7 +160,7 @@ describe("MainPage", () => {
       hasApiKey: true,
       lmAccounts: [lm(1)],
       wfAccounts: [wf("w1")],
-      isDirty: true,
+      draft: { 1: { type: "create" } },
     });
     render(<MainPage ctx={createMockCtx()} />);
     await userEvent.click(screen.getByText("Save Changes"));
@@ -205,7 +205,7 @@ describe("MainPage", () => {
       hasApiKey: true,
       lmAccounts: [lm(1)],
       wfAccounts: [wf("w1")],
-      isDirty: true,
+      draft: { 1: { type: "create" } },
     });
     render(<MainPage ctx={createMockCtx()} />);
     await userEvent.click(screen.getByText("Save Changes"));
