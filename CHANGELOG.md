@@ -8,6 +8,13 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-07
+
+### Fixed
+
+- The "Lunch Money" column label lines up with the status icons instead of being
+  indented
+
 ## [0.7.0] - 2026-11-07
 
 ### Added
