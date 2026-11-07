@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-07
+
 ### Changed
 
 - **Breaking:** require Wealthfolio 3.12+ (SDK and UI 3.12). The addon now runs
