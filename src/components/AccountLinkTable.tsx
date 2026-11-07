@@ -284,8 +284,9 @@ export function AccountLinkTable({ vm, onDraftChange, onNavigate }: AccountLinkT
           "text-muted-foreground border border-transparent px-4 text-xs font-semibold",
         )}
       >
-        <span />
-        <span data-column>Lunch Money</span>
+        <span data-column className="col-span-2">
+          Lunch Money
+        </span>
         <span />
         <span />
         <span data-column className="px-2">

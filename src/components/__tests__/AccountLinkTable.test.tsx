@@ -210,7 +210,10 @@ describe("AccountLinkTable", () => {
         onNavigate={vi.fn()}
       />,
     );
-    expect(screen.getByText("Lunch Money", { selector: "[data-column]" })).toBeInTheDocument();
+    // Starts above the status icons, not indented to the account names.
+    expect(screen.getByText("Lunch Money", { selector: "[data-column]" })).toHaveClass(
+      "col-span-2",
+    );
     expect(screen.getByText("Wealthfolio", { selector: "[data-column]" })).toBeInTheDocument();
   });
 
