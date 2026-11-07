@@ -8,13 +8,19 @@ import {
   Page,
   PageHeader,
   PageContent,
-  EmptyPlaceholder,
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
   Separator,
   ToggleGroup,
   ToggleGroupItem,
 } from "@wealthfolio/ui";
 import { AccountLinkTable, ConfirmSaveDialog } from "../components";
 import { useAccountSync } from "../hooks";
+import { SETTINGS_ROUTE } from "../lib/routes";
 
 export function MainPage({ ctx }: { ctx: AddonContext }) {
   const [showConfirm, setShowConfirm] = useState(false);
@@ -83,7 +89,7 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
               variant="outline"
               size="icon"
               title="Settings"
-              onClick={() => ctx.api.navigation.navigate("/addon/lunch-money/settings")}
+              onClick={() => ctx.api.navigation.navigate(SETTINGS_ROUTE.path)}
             >
               <Icons.Settings className="h-4 w-4" />
             </Button>
@@ -97,16 +103,20 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
         {status.phase === "checking" && <p className="text-muted-foreground text-sm">Loading…</p>}
 
         {status.phase === "no-api-key" && (
-          <EmptyPlaceholder>
-            <EmptyPlaceholder.Icon name="Settings" />
-            <EmptyPlaceholder.Title>No API key set</EmptyPlaceholder.Title>
-            <EmptyPlaceholder.Description>
-              Add your Lunch Money access token to get started
-            </EmptyPlaceholder.Description>
-            <Button onClick={() => ctx.api.navigation.navigate("/addon/lunch-money/settings")}>
-              Get started
-            </Button>
-          </EmptyPlaceholder>
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Icons.Settings />
+              </EmptyMedia>
+              <EmptyTitle>No API key set</EmptyTitle>
+              <EmptyDescription>Add your Lunch Money access token to get started</EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <Button onClick={() => ctx.api.navigation.navigate(SETTINGS_ROUTE.path)}>
+                Get started
+              </Button>
+            </EmptyContent>
+          </Empty>
         )}
 
         {status.phase === "empty" && (
@@ -137,9 +147,10 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
                 )}
               </div>
               <ToggleGroup
-                type="single"
-                value={filterTab}
-                onValueChange={(val) => {
+                value={[filterTab]}
+                onValueChange={(vals) => {
+                  // Base UI emits [] when the pressed tab is clicked again; keep it selected.
+                  const [val] = vals;
                   if (val) setFilterTab(val as "all" | "linked" | "skipped");
                 }}
                 className="bg-muted ml-auto h-9 rounded-md p-1"
@@ -148,7 +159,7 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
                   <ToggleGroupItem
                     key={tab}
                     value={tab}
-                    className="data-[state=on]:bg-background h-7 rounded px-3 text-xs capitalize"
+                    className="aria-pressed:bg-background h-7 rounded px-3 text-xs capitalize"
                   >
                     {tab}
                   </ToggleGroupItem>

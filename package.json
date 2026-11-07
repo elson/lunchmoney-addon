@@ -29,11 +29,11 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.21",
-    "@wealthfolio/addon-sdk": "^3.1.1",
-    "@wealthfolio/ui": "^3.1.1",
+    "@wealthfolio/addon-sdk": "^3.12.0",
+    "@wealthfolio/ui": "^3.12.0",
     "date-fns": "^4.1.0",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@eslint/compat": "^1.4.1",
@@ -44,11 +44,11 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@types/node": "^20.0.0",
-    "@types/react": "^19.1.1",
-    "@types/react-dom": "^19.1.1",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.2",
     "@vitest/coverage-v8": "^4.1.0",
-    "@wealthfolio/addon-dev-tools": "^3.1.1",
+    "@wealthfolio/addon-dev-tools": "^3.12.0",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react": "^7.37.5",
@@ -58,7 +58,6 @@
     "jsdom": "^29.0.0",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
-    "rollup-plugin-external-globals": "^0.13.0",
     "tailwindcss": "^4.1.13",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.55.0",

@@ -1,5 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import type { AddonContext } from "@wealthfolio/addon-sdk";
 import { fetchAllAccounts } from "../lunchmoney";
+import { createMockCtx } from "../../test/mockCtx";
 
 const makeAccount = (id: number) => ({
   id,
@@ -12,81 +14,92 @@ const makeAccount = (id: number) => ({
   status: "active",
 });
 
-function mockFetch(responses: { ok: boolean; status?: number; data?: unknown }[]) {
-  let call = 0;
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockImplementation(() => {
-      const res = responses[call++];
-      if (!res) throw new Error("Unexpected fetch call");
-      if (!res.ok) {
-        return Promise.resolve({
-          ok: false,
-          status: res.status ?? 500,
-          statusText: "Error",
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve(res.data),
-      });
-    }),
-  );
+type MockResponse = { status: number; data?: unknown };
+
+function mockNetwork(ctx: AddonContext, responses: Record<string, MockResponse>) {
+  vi.mocked(ctx.api.network.request).mockImplementation(({ url }) => {
+    const path = new URL(url).pathname.replace(/^\/v2/, "");
+    const res = responses[path];
+    if (!res) return Promise.reject(new Error(`Unexpected request to ${url}`));
+    return Promise.resolve({
+      status: res.status,
+      headers: {},
+      body: res.data === undefined ? "" : JSON.stringify(res.data),
+    });
+  });
 }
 
-beforeEach(() => {
-  vi.restoreAllMocks();
-});
-
 describe("fetchAllAccounts", () => {
+  it("requests both endpoints via the host network broker with bearer auth from secrets", async () => {
+    const ctx = createMockCtx();
+    mockNetwork(ctx, {
+      "/manual_accounts": { status: 200, data: { manual_accounts: [] } },
+      "/plaid_accounts": { status: 200, data: { plaid_accounts: [] } },
+    });
+    await fetchAllAccounts(ctx);
+    const calls = vi.mocked(ctx.api.network.request).mock.calls.map(([req]) => req);
+    expect(calls.map((c) => c.url).sort()).toEqual([
+      "https://api.lunchmoney.dev/v2/manual_accounts",
+      "https://api.lunchmoney.dev/v2/plaid_accounts",
+    ]);
+    for (const c of calls) {
+      expect(c.method).toBe("GET");
+      expect(c.auth).toEqual({ type: "bearer", secretKey: "lunchmoney-api-key" });
+    }
+  });
+
   it("merges manual and plaid accounts", async () => {
-    mockFetch([
-      { ok: true, data: { manual_accounts: [makeAccount(1)] } },
-      { ok: true, data: { plaid_accounts: [makeAccount(2)] } },
-    ]);
-    const result = await fetchAllAccounts("key");
-    expect(result).toHaveLength(2);
-    expect(result[0].id).toBe(1);
-    expect(result[1].id).toBe(2);
+    const ctx = createMockCtx();
+    mockNetwork(ctx, {
+      "/manual_accounts": { status: 200, data: { manual_accounts: [makeAccount(1)] } },
+      "/plaid_accounts": { status: 200, data: { plaid_accounts: [makeAccount(2)] } },
+    });
+    const result = await fetchAllAccounts(ctx);
+    expect(result.map((a) => a.id)).toEqual([1, 2]);
   });
 
-  it("returns only manual accounts when plaid rejects", async () => {
-    mockFetch([
-      { ok: true, data: { manual_accounts: [makeAccount(1)] } },
-      { ok: false, status: 403 },
-    ]);
-    const result = await fetchAllAccounts("key");
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe(1);
+  it("returns only manual accounts when plaid fails", async () => {
+    const ctx = createMockCtx();
+    mockNetwork(ctx, {
+      "/manual_accounts": { status: 200, data: { manual_accounts: [makeAccount(1)] } },
+      "/plaid_accounts": { status: 403 },
+    });
+    const result = await fetchAllAccounts(ctx);
+    expect(result.map((a) => a.id)).toEqual([1]);
   });
 
-  it("returns only plaid accounts when manual rejects", async () => {
-    mockFetch([
-      { ok: false, status: 500 },
-      { ok: true, data: { plaid_accounts: [makeAccount(2)] } },
-    ]);
-    const result = await fetchAllAccounts("key");
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe(2);
+  it("returns only plaid accounts when manual fails", async () => {
+    const ctx = createMockCtx();
+    mockNetwork(ctx, {
+      "/manual_accounts": { status: 500 },
+      "/plaid_accounts": { status: 200, data: { plaid_accounts: [makeAccount(2)] } },
+    });
+    const result = await fetchAllAccounts(ctx);
+    expect(result.map((a) => a.id)).toEqual([2]);
   });
 
-  it("returns empty array when both reject", async () => {
-    mockFetch([
-      { ok: false, status: 500 },
-      { ok: false, status: 500 },
-    ]);
-    const result = await fetchAllAccounts("key");
-    expect(result).toEqual([]);
+  it("returns empty array when both fail", async () => {
+    const ctx = createMockCtx();
+    mockNetwork(ctx, {
+      "/manual_accounts": { status: 401 },
+      "/plaid_accounts": { status: 401 },
+    });
+    expect(await fetchAllAccounts(ctx)).toEqual([]);
   });
 
-  it("throws when response is not ok (inside fetchJson)", async () => {
-    // fetchJson throws on !ok; allSettled catches that, so the result is empty
-    mockFetch([
-      { ok: false, status: 401 },
-      { ok: false, status: 401 },
-    ]);
-    const result = await fetchAllAccounts("key");
-    expect(result).toEqual([]);
+  it("treats a broker rejection as a failed endpoint", async () => {
+    const ctx = createMockCtx();
+    vi.mocked(ctx.api.network.request).mockRejectedValue(new Error("host not allowed"));
+    expect(await fetchAllAccounts(ctx)).toEqual([]);
+  });
+
+  it("treats an unparseable body as a failed endpoint", async () => {
+    const ctx = createMockCtx();
+    vi.mocked(ctx.api.network.request).mockResolvedValue({
+      status: 200,
+      headers: {},
+      body: "<html>",
+    });
+    expect(await fetchAllAccounts(ctx)).toEqual([]);
   });
 });

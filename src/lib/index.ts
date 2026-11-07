@@ -13,3 +13,4 @@ export {
   type ConfirmResult,
   type SyncBalancesResult,
 } from "./syncEngine";
+export { MAIN_ROUTE, SETTINGS_ROUTE } from "./routes";

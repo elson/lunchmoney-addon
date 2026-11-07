@@ -27,9 +27,18 @@ holdings. The addon is distributed as a single bundled ES module
 function. This is the only function Wealthfolio calls — it receives an
 `AddonContext` that exposes the full SDK surface.
 
-**Build**: Vite library mode, output format `es`. React and ReactDOM are
-external globals (not bundled) — the host app provides them. `@wealthfolio/ui`
-components and Tailwind CSS v4 are available for UI.
+**Build**: Vite library mode, output format `es`. The addon runs in a sandboxed
+iframe (Wealthfolio ≥ 3.6). Host-provided packages (React, `@wealthfolio/ui`,
+`@wealthfolio/addon-sdk`, `date-fns`, …) are ESM `external` in `vite.config.ts`
+and must match `hostDependencies` in `manifest.json`. Tailwind CSS v4 is
+available for UI.
+
+**Sandbox rules**: `fetch` is blocked — call external APIs via
+`ctx.api.network.request` (host listed in `manifest.json`
+`network.allowedHosts`). `localStorage` throws — persist with async
+`ctx.api.storage` (get/set/delete). `@wealthfolio/ui` is built on Base UI (not
+Radix): use `render` instead of `asChild`, `onClick` on `DropdownMenuItem`,
+array values on `ToggleGroup`.
 
 **Folder conventions**:
 
@@ -111,19 +120,21 @@ interface AddonContext {
 }
 ```
 
-### Sidebar & Router
+### Routes & Sidebar
+
+Routes and the sidebar link are declared in `manifest.json` `contributes`; the
+host mounts them at `/addons/<manifest.id>[/<path>]`. Route ids and paths live
+in `src/lib/routes.ts` and must match the manifest (enforced by
+`routes.test.ts`). `enable()` only attaches components:
 
 ```typescript
-// Register a sidebar nav item
-const item = ctx.sidebar.addItem({ id, label, route, icon?, order });
-item.remove(); // call in onDisable
-
-// Register a route
-ctx.router.add({ path: '/addon/my-addon', component: React.lazy(...) });
+ctx.router.add({ ...MAIN_ROUTE, component: Main }); // host owns the React root
 
 // Programmatic navigation
-ctx.api.events.navigate('/accounts'); // or /portfolio, /activities, /goals, /settings
+ctx.api.navigation.navigate(SETTINGS_ROUTE.path); // or /accounts, /portfolio, …
 ```
+
+Sidebar icons are a curated string set (`AddonIconName`), not React nodes.
 
 ### Key API Methods
 
@@ -248,9 +259,10 @@ Both account types share these relevant fields:
 }
 ```
 
-Fetch logic lives in `src/lib/lunchmoney.ts` — extend it for new endpoints
-rather than adding fetch calls inline. Wealthfolio account operations live in
-`src/lib/wealthfolio.ts`.
+Fetch logic lives in `src/lib/lunchmoney.ts` (via `ctx.api.network.request` with
+`auth: { type: "bearer", secretKey }` — the broker injects the key) — extend it
+for new endpoints rather than adding fetch calls inline. Wealthfolio account
+operations live in `src/lib/wealthfolio.ts`.
 
 ### Cleanup pattern
 

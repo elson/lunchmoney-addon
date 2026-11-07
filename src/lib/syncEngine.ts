@@ -21,7 +21,7 @@ export type SyncBalancesResult =
   | { ok: false; errors: string[] };
 
 export interface SyncEngine {
-  loadAll(apiKey: string): Promise<LoadResult>;
+  loadAll(): Promise<LoadResult>;
   confirm(draft: AccountMapping, lmAccounts: LunchmoneyAccount[]): Promise<ConfirmResult>;
   syncBalances(
     savedMapping: AccountMapping,
@@ -78,9 +78,9 @@ async function loadValuations(
 
 export function createSyncEngine(ctx: AddonContext): SyncEngine {
   return {
-    async loadAll(apiKey) {
+    async loadAll() {
       const [lmData, wfData, mapping] = await Promise.all([
-        fetchAllAccounts(apiKey),
+        fetchAllAccounts(ctx),
         ctx.api.accounts.getAll(),
         loadMapping(ctx),
       ]);
@@ -92,7 +92,7 @@ export function createSyncEngine(ctx: AddonContext): SyncEngine {
       // Persist immediately if stale entries were removed, so they don't
       // re-lock WF accounts on the next load before a Save is triggered.
       if (Object.keys(cleaned).length !== Object.keys(mapping).length) {
-        saveMapping(cleaned);
+        await saveMapping(ctx, cleaned);
       }
 
       const wfCashBalances = await loadValuations(ctx, cleaned);
@@ -112,7 +112,7 @@ export function createSyncEngine(ctx: AddonContext): SyncEngine {
         finalDraft[lmId] = { type: "existing", wfAccountId: String(created.id) };
       }
 
-      saveMapping(finalDraft);
+      await saveMapping(ctx, finalDraft);
       const wfAccounts = await ctx.api.accounts.getAll();
       return { savedMapping: finalDraft, wfAccounts };
     },
@@ -140,7 +140,7 @@ export function createSyncEngine(ctx: AddonContext): SyncEngine {
         return { ok: false, errors };
       }
 
-      saveLastSynced();
+      await saveLastSynced(ctx);
       const lastSynced = new Date();
       await ctx.api.portfolio.update();
       const wfCashBalances = await loadValuations(ctx, savedMapping);

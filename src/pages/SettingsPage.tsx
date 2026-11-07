@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import type { AddonContext } from "@wealthfolio/addon-sdk";
 import { Button, Input, Label, Page, PageHeader, PageContent, Separator } from "@wealthfolio/ui";
 import { getApiKey, setApiKey, clearApiKey } from "../lib/lunchmoney";
+import { MAIN_ROUTE } from "../lib/routes";
 
 export default function SettingsPage({ ctx }: { ctx: AddonContext }) {
   const [apiKeyInput, setApiKeyInput] = useState("");
@@ -37,7 +38,7 @@ export default function SettingsPage({ ctx }: { ctx: AddonContext }) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => ctx.api.navigation.navigate("/addon/lunch-money")}
+            onClick={() => ctx.api.navigation.navigate(MAIN_ROUTE.path)}
           >
             Close
           </Button>

@@ -60,6 +60,6 @@ describe("SettingsPage", () => {
     const ctx = createMockCtx();
     render(<SettingsPage ctx={ctx} />);
     await userEvent.click(screen.getByText("Close"));
-    expect(ctx.api.navigation.navigate).toHaveBeenCalledWith("/addon/lunch-money");
+    expect(ctx.api.navigation.navigate).toHaveBeenCalledWith("/addons/lunchmoney-addon");
   });
 });

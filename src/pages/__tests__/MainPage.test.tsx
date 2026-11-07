@@ -83,7 +83,7 @@ describe("MainPage", () => {
   it("shows no API key placeholder", () => {
     vi.mocked(useAccountSync).mockReturnValue(makeController({ status: { phase: "no-api-key" } }));
     render(<MainPage ctx={createMockCtx()} />);
-    expect(screen.getByTestId("empty-placeholder")).toBeInTheDocument();
+    expect(screen.getByTestId("empty")).toBeInTheDocument();
     expect(screen.getByText("No API key set")).toBeInTheDocument();
   });
 
@@ -142,8 +142,17 @@ describe("MainPage", () => {
   it("switches to linked tab on filter click", async () => {
     vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1)], [wf("w1")]));
     render(<MainPage ctx={createMockCtx()} />);
+    expect(screen.getByText("all")).toHaveAttribute("aria-pressed", "true");
     await userEvent.click(screen.getByText("linked"));
-    expect(screen.getByText("linked")).toBeInTheDocument();
+    expect(screen.getByText("linked")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("all")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("keeps the active filter tab selected when it is clicked again", async () => {
+    vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1)], [wf("w1")]));
+    render(<MainPage ctx={createMockCtx()} />);
+    await userEvent.click(screen.getByText("all"));
+    expect(screen.getByText("all")).toHaveAttribute("aria-pressed", "true");
   });
 
   it("calls confirm via dialog onConfirm", async () => {
@@ -209,7 +218,7 @@ describe("MainPage", () => {
     const ctx = createMockCtx();
     render(<MainPage ctx={ctx} />);
     await userEvent.click(screen.getByTitle("Settings"));
-    expect(ctx.api.navigation.navigate).toHaveBeenCalledWith("/addon/lunch-money/settings");
+    expect(ctx.api.navigation.navigate).toHaveBeenCalledWith("/addons/lunchmoney-addon/settings");
   });
 
   it("navigates to settings from 'Get started' button when no API key", async () => {
@@ -217,7 +226,7 @@ describe("MainPage", () => {
     const ctx = createMockCtx();
     render(<MainPage ctx={ctx} />);
     await userEvent.click(screen.getByText("Get started"));
-    expect(ctx.api.navigation.navigate).toHaveBeenCalledWith("/addon/lunch-money/settings");
+    expect(ctx.api.navigation.navigate).toHaveBeenCalledWith("/addons/lunchmoney-addon/settings");
   });
 
   it("calls navigate when AccountLinkTable onNavigate is triggered", async () => {

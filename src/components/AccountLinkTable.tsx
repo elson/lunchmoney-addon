@@ -122,16 +122,16 @@ function WfAccountMenuButton({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-          <Icons.ChevronsUpDown className="h-4 w-4" />
-        </Button>
+      <DropdownMenuTrigger
+        render={<Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" />}
+      >
+        <Icons.ChevronsUpDown className="h-4 w-4" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onSelect={() => onDraftChange(lmId, { type: "ignore" })}>
+        <DropdownMenuItem onClick={() => onDraftChange(lmId, { type: "ignore" })}>
           Skip
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => onDraftChange(lmId, { type: "create" })}>
+        <DropdownMenuItem onClick={() => onDraftChange(lmId, { type: "create" })}>
           Create new account…
         </DropdownMenuItem>
         {available.length > 0 && <DropdownMenuSeparator />}
@@ -139,7 +139,7 @@ function WfAccountMenuButton({
           <DropdownMenuItem
             key={a.id}
             className="flex flex-col items-start"
-            onSelect={() => onDraftChange(lmId, { type: "existing", wfAccountId: String(a.id) })}
+            onClick={() => onDraftChange(lmId, { type: "existing", wfAccountId: String(a.id) })}
           >
             <span>{a.name}</span>
             {a.group && <span className="text-muted-foreground text-xs">{a.group}</span>}

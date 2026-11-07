@@ -74,18 +74,13 @@ export const PageContent = ({
   withPadding?: boolean;
 }) => <div data-testid="page-content">{children}</div>;
 
-export const EmptyPlaceholder = ({ children }: { children: React.ReactNode }) => (
-  <div data-testid="empty-placeholder">{children}</div>
-);
-EmptyPlaceholder.Icon = ({ name }: { name: string }) => (
-  <span data-testid="empty-placeholder-icon">{name}</span>
-);
-EmptyPlaceholder.Title = ({ children }: { children: React.ReactNode }) => (
-  <h3 data-testid="empty-placeholder-title">{children}</h3>
-);
-EmptyPlaceholder.Description = ({ children }: { children: React.ReactNode }) => (
-  <p data-testid="empty-placeholder-description">{children}</p>
-);
+type DivProps = React.HTMLAttributes<HTMLDivElement> & { variant?: string };
+export const Empty = ({ variant: _v, ...p }: DivProps) => <div data-testid="empty" {...p} />;
+export const EmptyHeader = ({ variant: _v, ...p }: DivProps) => <div {...p} />;
+export const EmptyMedia = ({ variant: _v, ...p }: DivProps) => <div {...p} />;
+export const EmptyTitle = ({ variant: _v, ...p }: DivProps) => <h3 {...p} />;
+export const EmptyDescription = (p: React.HTMLAttributes<HTMLParagraphElement>) => <p {...p} />;
+export const EmptyContent = ({ variant: _v, ...p }: DivProps) => <div {...p} />;
 
 export const Separator = () => <hr />;
 
@@ -93,21 +88,24 @@ export const Label = ({ children, htmlFor }: { children: React.ReactNode; htmlFo
   <label htmlFor={htmlFor}>{children}</label>
 );
 
-const ToggleGroupContext = React.createContext<((val: string) => void) | undefined>(undefined);
+// Mirrors Base UI's ToggleGroup (@wealthfolio/ui ≥ 3.10): values are arrays,
+// onValueChange receives the new pressed set, and pressed items get aria-pressed.
+const ToggleGroupContext = React.createContext<{
+  value: readonly string[];
+  onValueChange?: (val: string[]) => void;
+}>({ value: [] });
 
 export const ToggleGroup = ({
   children,
   onValueChange,
-  value: _v,
-  type: _t,
+  value = [],
   ...rest
 }: {
   children: React.ReactNode;
-  onValueChange?: (val: string) => void;
-  value?: string;
-  type?: string;
-} & React.HTMLAttributes<HTMLDivElement>) => (
-  <ToggleGroupContext.Provider value={onValueChange}>
+  onValueChange?: (val: string[]) => void;
+  value?: readonly string[];
+} & Omit<React.HTMLAttributes<HTMLDivElement>, "defaultValue">) => (
+  <ToggleGroupContext.Provider value={{ value, onValueChange }}>
     <div {...rest}>{children}</div>
   </ToggleGroupContext.Provider>
 );
@@ -120,9 +118,15 @@ export const ToggleGroupItem = ({
   children: React.ReactNode;
   value: string;
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) => {
-  const onValueChange = React.useContext(ToggleGroupContext);
+  const group = React.useContext(ToggleGroupContext);
+  const pressed = group.value.includes(value);
   return (
-    <button value={value} onClick={() => onValueChange?.(value)} {...rest}>
+    <button
+      value={value}
+      aria-pressed={pressed}
+      onClick={() => group.onValueChange?.(pressed ? [] : [value])}
+      {...rest}
+    >
       {children}
     </button>
   );
@@ -132,13 +136,18 @@ export const DropdownMenu = ({ children }: { children: React.ReactNode }) => (
   <div data-testid="dropdown-menu">{children}</div>
 );
 
+// Base UI triggers take `render` (an element to render as) instead of Radix's `asChild`.
 export const DropdownMenuTrigger = ({
   children,
-  asChild: _asChild,
+  render,
 }: {
-  children: React.ReactNode;
-  asChild?: boolean;
-}) => <div data-testid="dropdown-trigger">{children}</div>;
+  children?: React.ReactNode;
+  render?: React.ReactElement<{ children?: React.ReactNode }>;
+}) => (
+  <div data-testid="dropdown-trigger">
+    {render ? React.cloneElement(render, undefined, children) : children}
+  </div>
+);
 
 export const DropdownMenuContent = ({
   children,
@@ -150,13 +159,11 @@ export const DropdownMenuContent = ({
 
 export const DropdownMenuItem = ({
   children,
-  onSelect,
   ...rest
 }: {
   children: React.ReactNode;
-  onSelect?: () => void;
 } & React.HTMLAttributes<HTMLDivElement>) => (
-  <div role="menuitem" onClick={onSelect} {...rest}>
+  <div role="menuitem" {...rest}>
     {children}
   </div>
 );

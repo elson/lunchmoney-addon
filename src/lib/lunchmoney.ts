@@ -20,20 +20,25 @@ export interface LunchmoneyAccount {
   status: string;
 }
 
-async function fetchJson<T>(path: string, apiKey: string): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { Authorization: `Bearer ${apiKey}` },
+// The addon runs in a sandboxed iframe where `fetch` is blocked; all requests go
+// through the host's network broker, which injects the bearer token from secrets
+// so the API key never enters addon code. GET only — this addon is read-only.
+async function fetchJson<T>(ctx: AddonContext, path: string): Promise<T> {
+  const res = await ctx.api.network.request({
+    url: `${BASE_URL}${path}`,
+    method: "GET",
+    auth: { type: "bearer", secretKey: API_KEY_SECRET },
   });
-  if (!res.ok) {
-    throw new Error(`Lunch Money API error ${res.status}: ${res.statusText}`);
+  if (res.status < 200 || res.status >= 300) {
+    throw new Error(`Lunch Money API error ${res.status}`);
   }
-  return res.json() as Promise<T>;
+  return JSON.parse(res.body) as T;
 }
 
-export async function fetchAllAccounts(apiKey: string): Promise<LunchmoneyAccount[]> {
+export async function fetchAllAccounts(ctx: AddonContext): Promise<LunchmoneyAccount[]> {
   const [manualResult, plaidResult] = await Promise.allSettled([
-    fetchJson<{ manual_accounts: LunchmoneyAccount[] }>("/manual_accounts", apiKey),
-    fetchJson<{ plaid_accounts: LunchmoneyAccount[] }>("/plaid_accounts", apiKey),
+    fetchJson<{ manual_accounts: LunchmoneyAccount[] }>(ctx, "/manual_accounts"),
+    fetchJson<{ plaid_accounts: LunchmoneyAccount[] }>(ctx, "/plaid_accounts"),
   ]);
   const manual = manualResult.status === "fulfilled" ? manualResult.value.manual_accounts : [];
   const plaid = plaidResult.status === "fulfilled" ? plaidResult.value.plaid_accounts : [];

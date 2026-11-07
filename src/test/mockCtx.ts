@@ -1,6 +1,22 @@
 import { vi } from "vitest";
 import type { AddonContext } from "@wealthfolio/addon-sdk";
 
+/** In-memory stand-in for the host's durable `ctx.api.storage`. */
+function createMemoryStorage() {
+  const store = new Map<string, string>();
+  return {
+    get: vi.fn((key: string) => Promise.resolve(store.get(key) ?? null)),
+    set: vi.fn((key: string, value: string) => {
+      store.set(key, value);
+      return Promise.resolve();
+    }),
+    delete: vi.fn((key: string) => {
+      store.delete(key);
+      return Promise.resolve();
+    }),
+  };
+}
+
 export function createMockCtx(): AddonContext {
   return {
     sidebar: {
@@ -11,6 +27,10 @@ export function createMockCtx(): AddonContext {
     },
     onDisable: vi.fn(),
     api: {
+      storage: createMemoryStorage(),
+      network: {
+        request: vi.fn().mockResolvedValue({ status: 200, headers: {}, body: "{}" }),
+      },
       secrets: {
         get: vi.fn().mockResolvedValue(null),
         set: vi.fn().mockResolvedValue(undefined),

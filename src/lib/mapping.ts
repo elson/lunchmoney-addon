@@ -4,7 +4,7 @@ import type { AccountMapping } from "../types";
 const MAPPING_STORAGE_KEY = "lunchmoney-addon:account-mapping";
 const LAST_SYNCED_STORAGE_KEY = "lunchmoney-addon:last-synced";
 
-// Legacy key — used only for one-time migration from secrets to localStorage
+// Legacy key — used only for one-time migration from secrets to addon storage
 const MAPPING_SECRET_KEY_LEGACY = "account-mapping";
 
 export function serializeMapping(mapping: AccountMapping): string {
@@ -21,18 +21,19 @@ export function deserializeMapping(raw: string | null): AccountMapping {
 }
 
 /**
- * Load mapping from localStorage, migrating from secrets on first run if needed.
+ * Load mapping from the host's durable addon storage, migrating from the legacy
+ * secret on first run if needed. (`localStorage` throws in the addon sandbox.)
  */
 export async function loadMapping(ctx: AddonContext): Promise<AccountMapping> {
-  const stored = localStorage.getItem(MAPPING_STORAGE_KEY);
+  const stored = await ctx.api.storage.get(MAPPING_STORAGE_KEY);
   if (stored !== null) {
     return deserializeMapping(stored);
   }
 
-  // One-time migration: pull from secrets, write to localStorage, delete from secrets
+  // One-time migration: pull from secrets, write to storage, delete from secrets
   const fromSecrets = await ctx.api.secrets.get(MAPPING_SECRET_KEY_LEGACY);
   if (fromSecrets) {
-    localStorage.setItem(MAPPING_STORAGE_KEY, fromSecrets);
+    await ctx.api.storage.set(MAPPING_STORAGE_KEY, fromSecrets);
     await ctx.api.secrets.delete(MAPPING_SECRET_KEY_LEGACY);
     return deserializeMapping(fromSecrets);
   }
@@ -40,19 +41,19 @@ export async function loadMapping(ctx: AddonContext): Promise<AccountMapping> {
   return {};
 }
 
-export function saveMapping(mapping: AccountMapping): void {
-  localStorage.setItem(MAPPING_STORAGE_KEY, serializeMapping(mapping));
+export async function saveMapping(ctx: AddonContext, mapping: AccountMapping): Promise<void> {
+  await ctx.api.storage.set(MAPPING_STORAGE_KEY, serializeMapping(mapping));
 }
 
-export function loadLastSynced(): Date | null {
-  const raw = localStorage.getItem(LAST_SYNCED_STORAGE_KEY);
+export async function loadLastSynced(ctx: AddonContext): Promise<Date | null> {
+  const raw = await ctx.api.storage.get(LAST_SYNCED_STORAGE_KEY);
   if (!raw) return null;
   const ts = Number(raw);
   return isNaN(ts) ? null : new Date(ts);
 }
 
-export function saveLastSynced(): void {
-  localStorage.setItem(LAST_SYNCED_STORAGE_KEY, String(Date.now()));
+export async function saveLastSynced(ctx: AddonContext): Promise<void> {
+  await ctx.api.storage.set(LAST_SYNCED_STORAGE_KEY, String(Date.now()));
 }
 
 export function mappingsEqual(a: AccountMapping, b: AccountMapping): boolean {

@@ -56,18 +56,22 @@ export function useAccountSync(ctx: AddonContext, paused: boolean): AccountSyncC
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [lastSynced, setLastSynced] = useState<Date | null>(() => loadLastSynced());
+  const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [isSyncingBalances, setIsSyncingBalances] = useState(false);
   const [wfCashBalances, setWfCashBalances] = useState<Record<string, number>>({});
 
   const engine = useMemo(() => createSyncEngine(ctx), [ctx]);
 
   useEffect(() => {
+    loadLastSynced(ctx).then(setLastSynced);
+  }, [ctx]);
+
+  useEffect(() => {
     if (paused) return;
     getApiKey(ctx).then((key) => {
       setApiKeyState(key);
       if (key) {
-        loadAll(key);
+        loadAll();
       } else {
         setLmAccounts(null);
         setWfAccounts(null);
@@ -75,11 +79,11 @@ export function useAccountSync(ctx: AddonContext, paused: boolean): AccountSyncC
     });
   }, [paused]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function loadAll(key: string) {
+  async function loadAll() {
     setError(null);
     setLoading(true);
     try {
-      const r = await engine.loadAll(key);
+      const r = await engine.loadAll();
       setLmAccounts(r.lmAccounts);
       setWfAccounts(r.wfAccounts);
       setSavedMapping(r.savedMapping);
@@ -93,7 +97,7 @@ export function useAccountSync(ctx: AddonContext, paused: boolean): AccountSyncC
   }
 
   function handleRefresh() {
-    if (apiKey) loadAll(apiKey);
+    if (apiKey) loadAll();
   }
 
   function handleDraftChange(lmId: number, entry: MappingEntry) {

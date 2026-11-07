@@ -20,6 +20,8 @@ Synchronise your [Lunch Money](https://lunchmoney.app) cash account balances to
 
 ## Installation
 
+Requires **Wealthfolio 3.12 or newer**.
+
 1. Download the latest release zip from the [Releases](../../releases) page.
 2. In Wealthfolio, open **Settings → Add-ons** and install the zip.
 3. The **Lunch Money** item will appear in the sidebar.
@@ -29,15 +31,13 @@ Synchronise your [Lunch Money](https://lunchmoney.app) cash account balances to
 
 ### Permissions requested
 
-| Category   | Functions                                    | Purpose                                             |
-| ---------- | -------------------------------------------- | --------------------------------------------------- |
-| accounts   | `getAll`, `create`                           | Display and link accounts                           |
-| snapshots  | `save`                                       | Write balance snapshots                             |
-| secrets    | `get`, `set`, `delete`                       | Store your API key securely (encrypted)             |
-| portfolio  | `getLatestValuations`                        | Compare Wealthfolio cash balances to Lunch Money    |
-| navigation | `navigate`                                   | Navigate to Wealthfolio account detail pages        |
-| logger     | `error`                                      | Log errors to the Wealthfolio logger                |
-| ui         | `sidebar.addItem`, `router.add`, `onDisable` | Add sidebar nav item and routes; cleanup on disable |
+| Category  | Functions                       | Purpose                                                     |
+| --------- | ------------------------------- | ----------------------------------------------------------- |
+| accounts  | `getAll`, `create`              | Display and link accounts                                   |
+| snapshots | `save`                          | Write balance snapshots                                     |
+| secrets   | `get`, `set`, `delete`          | Store your API key securely (encrypted)                     |
+| portfolio | `getLatestValuations`, `update` | Compare Wealthfolio cash balances to Lunch Money            |
+| network   | `request`                       | Read accounts from `api.lunchmoney.dev` (GET requests only) |
 
 ## Usage
 

@@ -11,8 +11,10 @@ import {
 } from "../mapping";
 import { createMockCtx } from "../../test/mockCtx";
 
+const MAPPING_KEY = "lunchmoney-addon:account-mapping";
+const LAST_SYNCED_KEY = "lunchmoney-addon:last-synced";
+
 beforeEach(() => {
-  localStorage.clear();
   vi.restoreAllMocks();
 });
 
@@ -102,23 +104,23 @@ describe("cleanMapping", () => {
 // ─── loadMapping ──────────────────────────────────────────────────────────────
 
 describe("loadMapping", () => {
-  it("returns mapping from localStorage when present", async () => {
+  it("returns mapping from addon storage when present", async () => {
     const m = { 1: { type: "ignore" as const } };
-    localStorage.setItem("lunchmoney-addon:account-mapping", JSON.stringify(m));
     const ctx = createMockCtx();
+    await ctx.api.storage.set(MAPPING_KEY, JSON.stringify(m));
     const result = await loadMapping(ctx);
     expect(result).toEqual(m);
     expect(ctx.api.secrets.get).not.toHaveBeenCalled();
   });
 
-  it("migrates from secrets when localStorage is empty", async () => {
+  it("migrates from legacy secret when storage is empty", async () => {
     const m = { 5: { type: "create" as const } };
     const ctx = createMockCtx();
     vi.mocked(ctx.api.secrets.get).mockResolvedValueOnce(JSON.stringify(m));
     const result = await loadMapping(ctx);
     expect(result).toEqual(m);
-    expect(localStorage.getItem("lunchmoney-addon:account-mapping")).toBe(JSON.stringify(m));
-    expect(ctx.api.secrets.delete).toHaveBeenCalled();
+    expect(await ctx.api.storage.get(MAPPING_KEY)).toBe(JSON.stringify(m));
+    expect(ctx.api.secrets.delete).toHaveBeenCalledWith("account-mapping");
   });
 
   it("returns empty mapping when both sources are empty", async () => {
@@ -126,45 +128,59 @@ describe("loadMapping", () => {
     const result = await loadMapping(ctx);
     expect(result).toEqual({});
   });
+
+  it("does not touch window.localStorage (throws in the addon sandbox)", async () => {
+    const ctx = createMockCtx();
+    const spy = vi.spyOn(Storage.prototype, "getItem");
+    await loadMapping(ctx);
+    await saveMapping(ctx, {});
+    await loadLastSynced(ctx);
+    await saveLastSynced(ctx);
+    expect(spy).not.toHaveBeenCalled();
+  });
 });
 
 // ─── saveMapping ──────────────────────────────────────────────────────────────
 
 describe("saveMapping", () => {
-  it("writes serialized mapping to localStorage", () => {
+  it("writes serialized mapping to addon storage", async () => {
     const m = { 3: { type: "existing" as const, wfAccountId: "w3" } };
-    saveMapping(m);
-    expect(localStorage.getItem("lunchmoney-addon:account-mapping")).toBe(JSON.stringify(m));
+    const ctx = createMockCtx();
+    await saveMapping(ctx, m);
+    expect(await ctx.api.storage.get(MAPPING_KEY)).toBe(JSON.stringify(m));
   });
 });
 
 // ─── loadLastSynced / saveLastSynced ──────────────────────────────────────────
 
 describe("loadLastSynced", () => {
-  it("returns null when key is absent", () => {
-    expect(loadLastSynced()).toBeNull();
+  it("returns null when key is absent", async () => {
+    expect(await loadLastSynced(createMockCtx())).toBeNull();
   });
 
-  it("returns null for NaN timestamp", () => {
-    localStorage.setItem("lunchmoney-addon:last-synced", "not-a-number");
-    expect(loadLastSynced()).toBeNull();
+  it("returns null for NaN timestamp", async () => {
+    const ctx = createMockCtx();
+    await ctx.api.storage.set(LAST_SYNCED_KEY, "not-a-number");
+    expect(await loadLastSynced(ctx)).toBeNull();
   });
 
-  it("returns a Date for a valid timestamp", () => {
+  it("returns a Date for a valid timestamp", async () => {
     const ts = 1_700_000_000_000;
-    localStorage.setItem("lunchmoney-addon:last-synced", String(ts));
-    const result = loadLastSynced();
+    const ctx = createMockCtx();
+    await ctx.api.storage.set(LAST_SYNCED_KEY, String(ts));
+    const result = await loadLastSynced(ctx);
     expect(result).toBeInstanceOf(Date);
     expect(result!.getTime()).toBe(ts);
   });
 });
 
 describe("saveLastSynced", () => {
-  it("writes a numeric timestamp to localStorage", () => {
+  it("writes a numeric timestamp to addon storage", async () => {
+    const ctx = createMockCtx();
     const before = Date.now();
-    saveLastSynced();
+    await saveLastSynced(ctx);
     const after = Date.now();
-    const stored = Number(localStorage.getItem("lunchmoney-addon:last-synced"));
+    const stored = Number(await ctx.api.storage.get(LAST_SYNCED_KEY));
     expect(stored).toBeGreaterThanOrEqual(before);
     expect(stored).toBeLessThanOrEqual(after);
   });

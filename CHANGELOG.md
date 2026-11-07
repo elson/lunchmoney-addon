@@ -8,6 +8,20 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** require Wealthfolio 3.12+ (SDK and UI 3.12). The addon now runs
+  in Wealthfolio's sandboxed iframe: routes and the sidebar link are declared in
+  the manifest and served under `/addons/lunchmoney-addon`
+- Call the Lunch Money API through the host network broker (new `network`
+  permission for `api.lunchmoney.dev`); the API key is injected by the host
+- Persist account mappings and last-sync time in Wealthfolio addon storage
+  instead of `localStorage` (unavailable in the sandbox). Mappings saved by
+  earlier versions in `localStorage` cannot be read and must be re-linked
+- Migrate to Base UI components (`render` triggers, `Empty` empty state,
+  array-valued `ToggleGroup`)
+- Drop the `navigation`, `logger` and `ui` permission entries (now baseline)
+
 ## [0.3.4] - 2026-03-19
 
 ### Added

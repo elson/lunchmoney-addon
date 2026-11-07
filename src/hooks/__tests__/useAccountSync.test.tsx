@@ -28,7 +28,6 @@ function makeMockEngine(overrides: Partial<SyncEngine> = {}): SyncEngine {
 }
 
 beforeEach(() => {
-  localStorage.clear();
   vi.restoreAllMocks();
 });
 
@@ -110,7 +109,7 @@ describe("useAccountSync", () => {
     const { result } = renderHook(() => useAccountSync(ctx, false));
     await waitFor(() => expect(result.current.status.phase).toBe("ready"));
 
-    expect(engine.loadAll).toHaveBeenCalledWith("test-key");
+    expect(engine.loadAll).toHaveBeenCalledTimes(1);
     expect(result.current.busy.refreshing).toBe(false);
   });
 
@@ -450,5 +449,17 @@ describe("useAccountSync", () => {
 
     expect(result.current.lastSynced).toBe(newDate);
     expect(result.current.busy.syncing).toBe(false);
+  });
+});
+
+describe("useAccountSync lastSynced", () => {
+  it("loads the persisted last-synced time from addon storage", async () => {
+    const ctx = createMockCtx();
+    await ctx.api.storage.set("lunchmoney-addon:last-synced", "1700000000000");
+    vi.mocked(createSyncEngine).mockReturnValue(makeMockEngine());
+
+    const { result } = renderHook(() => useAccountSync(ctx, false));
+
+    await waitFor(() => expect(result.current.lastSynced?.getTime()).toBe(1_700_000_000_000));
   });
 });

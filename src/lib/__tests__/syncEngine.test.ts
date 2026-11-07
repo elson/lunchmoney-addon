@@ -32,8 +32,9 @@ const wfAccount = (id: string) => ({
   trackingMode: "HOLDINGS",
 });
 
+const MAPPING_KEY = "lunchmoney-addon:account-mapping";
+
 beforeEach(() => {
-  localStorage.clear();
   vi.restoreAllMocks();
   vi.mocked(fetchAllAccounts).mockResolvedValue([]);
 });
@@ -47,57 +48,59 @@ describe("loadAll", () => {
     vi.mocked(ctx.api.accounts.getAll).mockResolvedValue([wfAccount("w1")] as never);
 
     const engine = createSyncEngine(ctx);
-    const result = await engine.loadAll("test-key");
+    const result = await engine.loadAll();
 
-    expect(fetchAllAccounts).toHaveBeenCalledWith("test-key");
+    expect(fetchAllAccounts).toHaveBeenCalledWith(ctx);
     expect(ctx.api.accounts.getAll).toHaveBeenCalled();
     expect(result.lmAccounts).toHaveLength(1);
     expect(result.wfAccounts).toHaveLength(1);
   });
 
   it("cleans mapping and auto-saves when stale entries are removed", async () => {
-    localStorage.setItem(
-      "lunchmoney-addon:account-mapping",
+    const ctx = createMockCtx();
+    await ctx.api.storage.set(
+      MAPPING_KEY,
       JSON.stringify({
         1: { type: "ignore" },
         2: { type: "ignore" }, // id 2 deleted from LM
       }),
     );
-    const ctx = createMockCtx();
     vi.mocked(fetchAllAccounts).mockResolvedValue([lm(1)]); // only id 1 returned
     vi.mocked(ctx.api.accounts.getAll).mockResolvedValue([] as never);
 
     const engine = createSyncEngine(ctx);
-    const result = await engine.loadAll("test-key");
+    const result = await engine.loadAll();
 
     expect(result.savedMapping).toEqual({ 1: { type: "ignore" } });
-    const stored = localStorage.getItem("lunchmoney-addon:account-mapping");
+    const stored = await ctx.api.storage.get(MAPPING_KEY);
     expect(stored).toBe(JSON.stringify({ 1: { type: "ignore" } }));
   });
 
   it("does not auto-save when no stale entries are removed", async () => {
-    localStorage.setItem(
-      "lunchmoney-addon:account-mapping",
+    const ctx = createMockCtx();
+    await ctx.api.storage.set(
+      MAPPING_KEY,
       JSON.stringify({ 1: { type: "existing", wfAccountId: "w1" } }),
     );
-    const ctx = createMockCtx();
     vi.mocked(fetchAllAccounts).mockResolvedValue([lm(1)]);
     vi.mocked(ctx.api.accounts.getAll).mockResolvedValue([wfAccount("w1")] as never);
 
-    const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+    vi.mocked(ctx.api.storage.set).mockClear();
     const engine = createSyncEngine(ctx);
-    await engine.loadAll("test-key");
+    await engine.loadAll();
 
-    const mappingCalls = setItemSpy.mock.calls.filter(([key]) => key.includes("account-mapping"));
+    const mappingCalls = vi
+      .mocked(ctx.api.storage.set)
+      .mock.calls.filter(([key]) => key === MAPPING_KEY);
     expect(mappingCalls).toHaveLength(0);
   });
 
   it("returns wfCashBalances for existing mappings", async () => {
-    localStorage.setItem(
-      "lunchmoney-addon:account-mapping",
+    const ctx = createMockCtx();
+    await ctx.api.storage.set(
+      MAPPING_KEY,
       JSON.stringify({ 1: { type: "existing", wfAccountId: "w1" } }),
     );
-    const ctx = createMockCtx();
     vi.mocked(fetchAllAccounts).mockResolvedValue([lm(1)]);
     vi.mocked(ctx.api.accounts.getAll).mockResolvedValue([wfAccount("w1")] as never);
     vi.mocked(ctx.api.portfolio.getLatestValuations).mockResolvedValue([
@@ -105,7 +108,7 @@ describe("loadAll", () => {
     ]);
 
     const engine = createSyncEngine(ctx);
-    const result = await engine.loadAll("test-key");
+    const result = await engine.loadAll();
 
     expect(result.wfCashBalances).toEqual({ w1: 250.0 });
   });
@@ -116,24 +119,24 @@ describe("loadAll", () => {
     vi.mocked(ctx.api.accounts.getAll).mockResolvedValue([] as never);
 
     const engine = createSyncEngine(ctx);
-    const result = await engine.loadAll("test-key");
+    const result = await engine.loadAll();
 
     expect(result.wfCashBalances).toEqual({});
     expect(ctx.api.portfolio.getLatestValuations).not.toHaveBeenCalled();
   });
 
   it("returns empty wfCashBalances when valuation fetch fails (non-fatal)", async () => {
-    localStorage.setItem(
-      "lunchmoney-addon:account-mapping",
+    const ctx = createMockCtx();
+    await ctx.api.storage.set(
+      MAPPING_KEY,
       JSON.stringify({ 1: { type: "existing", wfAccountId: "w1" } }),
     );
-    const ctx = createMockCtx();
     vi.mocked(fetchAllAccounts).mockResolvedValue([lm(1)]);
     vi.mocked(ctx.api.accounts.getAll).mockResolvedValue([wfAccount("w1")] as never);
     vi.mocked(ctx.api.portfolio.getLatestValuations).mockRejectedValue(new Error("Network error"));
 
     const engine = createSyncEngine(ctx);
-    const result = await engine.loadAll("test-key");
+    const result = await engine.loadAll();
 
     expect(result.wfCashBalances).toEqual({});
   });
@@ -165,12 +168,12 @@ describe("confirm", () => {
     expect(result.savedMapping[1]).toEqual({ type: "existing", wfAccountId: "new-1" });
   });
 
-  it("saves mapping to localStorage", async () => {
+  it("saves mapping to addon storage", async () => {
     const ctx = createMockCtx();
     const engine = createSyncEngine(ctx);
     await engine.confirm({ 1: { type: "ignore" } }, [lm(1)]);
 
-    const stored = JSON.parse(localStorage.getItem("lunchmoney-addon:account-mapping")!);
+    const stored = JSON.parse((await ctx.api.storage.get(MAPPING_KEY))!);
     expect(stored[1]).toEqual({ type: "ignore" });
   });
 
@@ -294,7 +297,7 @@ describe("syncBalances", () => {
       expect(result.lastSynced).toBeInstanceOf(Date);
     }
     expect(ctx.api.portfolio.update).toHaveBeenCalledTimes(1);
-    const stored = localStorage.getItem("lunchmoney-addon:last-synced");
+    const stored = await ctx.api.storage.get("lunchmoney-addon:last-synced");
     expect(stored).not.toBeNull();
   });
 

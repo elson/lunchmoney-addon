@@ -5,8 +5,44 @@
   "description": "Synchronise your Lunch Money cash balances to Wealthfolio",
   "author": "stephen.elson@gmail.com",
   "main": "dist/addon.js",
-  "sdkVersion": "3.1.1",
+  "sdkVersion": "3.12.0",
+  "minWealthfolioVersion": "3.12.0",
+  "hostDependencies": {
+    "@tanstack/react-query": "^5.90.0",
+    "@wealthfolio/addon-sdk": "^3.12.0",
+    "@wealthfolio/ui": "^3.12.0",
+    "date-fns": "^4.1.0",
+    "lucide-react": "^0.561.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "recharts": "^3.7.0"
+  },
+  "network": {
+    "allowedHosts": ["api.lunchmoney.dev"]
+  },
   "enabled": true,
+  "contributes": {
+    "routes": [
+      {
+        "id": "lunch-money"
+      },
+      {
+        "id": "lunch-money-settings",
+        "path": "settings"
+      }
+    ],
+    "links": {
+      "sidebar": [
+        {
+          "id": "lunch-money",
+          "route": "lunch-money",
+          "label": "Lunch Money",
+          "icon": "bank",
+          "order": 100
+        }
+      ]
+    }
+  },
   "permissions": [
     {
       "category": "accounts",
@@ -29,19 +65,9 @@
       "purpose": "Fetch current Wealthfolio cash balances to compare against Lunch Money"
     },
     {
-      "category": "navigation",
-      "functions": ["navigate"],
-      "purpose": "Navigate to Wealthfolio account detail pages"
-    },
-    {
-      "category": "logger",
-      "functions": ["error"],
-      "purpose": "Log errors to the Wealthfolio logger"
-    },
-    {
-      "category": "ui",
-      "functions": ["sidebar.addItem", "router.add", "onDisable"],
-      "purpose": "Add navigation items and routes to the sidebar, and clean up on disable"
+      "category": "network",
+      "functions": ["request"],
+      "purpose": "Read account balances from the Lunch Money API (api.lunchmoney.dev, GET only)"
     }
   ],
   "keywords": ["wealthfolio", "lunchmoney", "addon"],
