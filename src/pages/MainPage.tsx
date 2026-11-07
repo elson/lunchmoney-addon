@@ -4,6 +4,11 @@ import type { AddonContext } from "@wealthfolio/addon-sdk";
 import {
   Icons,
   Button,
+  Card,
+  CardAction,
+  CardDescription,
+  CardHeader,
+  CardTitle,
   Input,
   Page,
   PageHeader,
@@ -18,7 +23,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@wealthfolio/ui";
-import { AccountLinkTable, ConfirmSaveDialog } from "../components";
+import { AccountLinkTable, ConfirmSaveDialog, LinkWizard } from "../components";
 import { useAccountSync } from "../hooks";
 import { SETTINGS_ROUTE } from "../lib/routes";
 
@@ -27,7 +32,10 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
   const [search, setSearch] = useState("");
   const [filterTab, setFilterTab] = useState<"all" | "linked" | "skipped">("all");
 
-  const { status, error, lastSynced, busy, actions } = useAccountSync(ctx, false);
+  const [mode, setMode] = useState<"table" | "wizard">("table");
+
+  const { status, error, lastSynced, lastSyncResult, busy, actions } = useAccountSync(ctx, false);
+  const canSync = status.phase === "ready" || status.phase === "empty";
 
   const tableVm = useMemo(
     () => (status.phase === "ready" ? status.vm.filtered(search, filterTab) : null),
@@ -51,40 +59,37 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
         text="Link your Lunch Money and Wealthfolio accounts and import balances"
         actions={
           <>
-            {lastSynced && linkedCount > 0 && (
+            {lastSynced && (
               <span className="text-muted-foreground mr-1 text-xs">
-                Last updated {formatDistanceToNow(lastSynced, { addSuffix: true })}
+                {syncStatusText(lastSynced, lastSyncResult)}
               </span>
             )}
-            {linkedCount > 0 && (
-              <Button
-                size="sm"
-                onClick={actions.syncBalances}
-                disabled={busy.syncing || busy.refreshing}
-              >
-                {busy.syncing ? (
-                  <Icons.Spinner className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Icons.Import className="h-4 w-4" />
-                )}
-                Import Balances
+            {status.phase === "ready" && mode === "table" && (
+              <Button variant="outline" size="sm" onClick={() => setMode("wizard")}>
+                <Icons.Link className="h-4 w-4" />
+                Link accounts
               </Button>
             )}
-            <Button
-              variant="outline"
-              size="icon"
-              title="Refresh Lunch Money accounts"
-              onClick={actions.refresh}
-              disabled={
-                busy.refreshing || status.phase === "no-api-key" || status.phase === "checking"
-              }
-            >
-              {busy.refreshing ? (
-                <Icons.Loader className="h-4 w-4 animate-spin" />
-              ) : (
-                <Icons.Refresh className="h-4 w-4" />
-              )}
-            </Button>
+            {canSync && mode === "table" && (
+              <Button
+                size="sm"
+                onClick={actions.sync}
+                disabled={busy.syncing}
+                title="Fetch from Lunch Money and import any balances that changed"
+              >
+                {busy.syncing ? (
+                  <>
+                    <Icons.Spinner className="h-4 w-4 animate-spin" />
+                    Syncing…
+                  </>
+                ) : (
+                  <>
+                    <Icons.RefreshCw className="h-4 w-4" />
+                    Sync
+                  </>
+                )}
+              </Button>
+            )}
             <Button
               variant="outline"
               size="icon"
@@ -123,8 +128,40 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
           <p className="text-muted-foreground text-sm">No accounts found.</p>
         )}
 
-        {status.phase === "ready" && tableVm && (
+        {status.phase === "ready" && mode === "wizard" && (
+          <LinkWizard
+            vm={status.vm}
+            saving={busy.saving}
+            onChoose={actions.changeDraft}
+            onCancel={() => {
+              actions.undo();
+              setMode("table");
+            }}
+            onFinish={async (options) => {
+              await actions.confirm(options);
+              setMode("table");
+            }}
+          />
+        )}
+
+        {status.phase === "ready" && mode === "table" && tableVm && (
           <>
+            {linkedCount === 0 && (
+              <Card className="mb-2">
+                <CardHeader>
+                  <CardTitle>Link your accounts</CardTitle>
+                  <CardDescription>
+                    Found {status.vm.rows.length} Lunch Money{" "}
+                    {status.vm.rows.length === 1 ? "account" : "accounts"}. Step through them one at
+                    a time to choose where each balance goes in Wealthfolio — you’ll review
+                    everything before it’s saved.
+                  </CardDescription>
+                  <CardAction>
+                    <Button onClick={() => setMode("wizard")}>Start</Button>
+                  </CardAction>
+                </CardHeader>
+              </Card>
+            )}
             <div className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="relative flex-1 sm:max-w-sm">
                 <Icons.Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
@@ -213,4 +250,11 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
       </PageContent>
     </Page>
   );
+}
+
+function syncStatusText(lastSynced: Date, result: { imported: number } | null): string {
+  const when = `Synced ${formatDistanceToNow(lastSynced, { addSuffix: true })}`;
+  if (!result) return when;
+  if (result.imported === 0) return `${when} · all balances up to date`;
+  return `${when} · ${result.imported} ${result.imported === 1 ? "balance" : "balances"} updated`;
 }

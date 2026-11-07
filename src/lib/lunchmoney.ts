@@ -22,6 +22,12 @@ export interface LunchmoneyAccount {
   source?: "manual" | "synced";
 }
 
+export class LunchMoneyApiError extends Error {
+  constructor(readonly status: number) {
+    super(`Lunch Money API error ${status}`);
+  }
+}
+
 // The addon runs in a sandboxed iframe where `fetch` is blocked; all requests go
 // through the host's network broker, which injects the bearer token from secrets
 // so the API key never enters addon code. GET only — this addon is read-only.
@@ -32,7 +38,7 @@ async function fetchJson<T>(ctx: AddonContext, path: string): Promise<T> {
     auth: { type: "bearer", secretKey: API_KEY_SECRET },
   });
   if (res.status < 200 || res.status >= 300) {
-    throw new Error(`Lunch Money API error ${res.status}`);
+    throw new LunchMoneyApiError(res.status);
   }
   return JSON.parse(res.body) as T;
 }
@@ -48,4 +54,26 @@ export async function fetchAllAccounts(ctx: AddonContext): Promise<LunchmoneyAcc
     ...manual.map((a) => ({ ...a, source: "manual" as const })),
     ...plaid.map((a) => ({ ...a, source: "synced" as const })),
   ];
+}
+
+export type ConnectionStatus =
+  | { ok: true; budgetName: string; userName: string }
+  | { ok: false; reason: "unauthorized" }
+  | { ok: false; reason: "error"; message: string };
+
+/** Checks the saved token by asking Lunch Money who it belongs to (read-only). */
+export async function checkConnection(ctx: AddonContext): Promise<ConnectionStatus> {
+  try {
+    const me = await fetchJson<{ name: string; budget_name: string }>(ctx, "/me");
+    return { ok: true, budgetName: me.budget_name, userName: me.name };
+  } catch (err) {
+    if (err instanceof LunchMoneyApiError && (err.status === 401 || err.status === 403)) {
+      return { ok: false, reason: "unauthorized" };
+    }
+    return {
+      ok: false,
+      reason: "error",
+      message: err instanceof Error ? err.message : String(err),
+    };
+  }
 }

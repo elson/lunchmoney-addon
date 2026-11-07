@@ -255,6 +255,24 @@ describe("AccountLinkTable", () => {
     expect(onDraftChange).toHaveBeenCalledWith(1, { type: "create" });
   });
 
+  it("doesn't offer Wealthfolio accounts in a different currency", () => {
+    render(
+      <AccountLinkTable
+        vm={makeVm(
+          [{ ...lm(1, "Checking"), currency: "gbp" }],
+          [
+            { ...wf("w1", "Pounds"), currency: "GBP" } as never,
+            { ...wf("w2", "Euros"), currency: "EUR" } as never,
+          ],
+        )}
+        onDraftChange={vi.fn()}
+        onNavigate={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("menuitem", { name: "Pounds" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Euros" })).toBeNull();
+  });
+
   it("calls onDraftChange with existing when a wf account item is clicked", async () => {
     const onDraftChange = vi.fn();
     const wfWithTracking = { ...wf("w1", "Portfolio"), trackingMode: "HOLDINGS" } as never;

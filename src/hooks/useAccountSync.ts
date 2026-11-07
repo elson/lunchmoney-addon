@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import type { AddonContext, Account } from "@wealthfolio/addon-sdk";
 import { getApiKey, type LunchmoneyAccount } from "../lib/lunchmoney";
 import { loadLastSynced } from "../lib/mapping";
-import { createSyncEngine } from "../lib/syncEngine";
+import { createSyncEngine, type LoadResult } from "../lib/syncEngine";
 import type { AccountMapping, MappingEntry } from "../types";
 import { buildAccountViewModel, type AccountViewModel } from "../lib/accountViewModel";
 
@@ -19,17 +19,18 @@ export interface AccountSyncController {
   status: SyncStatus;
   error: string | null;
   lastSynced: Date | null;
+  /** Outcome of the most recent sync or import in this session. */
+  lastSyncResult: { imported: number } | null;
   busy: {
     saving: boolean;
     syncing: boolean;
-    refreshing: boolean;
   };
   actions: {
-    refresh: () => void;
     changeDraft: (lmId: number, entry: MappingEntry) => void;
     undo: () => void;
-    confirm: () => Promise<void>;
-    syncBalances: () => Promise<void>;
+    confirm: (options?: { importBalances?: boolean }) => Promise<void>;
+    /** Re-fetch from Lunch Money, then import any linked balances that differ. */
+    sync: () => Promise<void>;
   };
 }
 
@@ -57,7 +58,8 @@ export function useAccountSync(ctx: AddonContext, paused: boolean): AccountSyncC
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
-  const [isSyncingBalances, setIsSyncingBalances] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncResult, setLastSyncResult] = useState<{ imported: number } | null>(null);
   const [wfCashBalances, setWfCashBalances] = useState<Record<string, number>>({});
 
   const engine = useMemo(() => createSyncEngine(ctx), [ctx]);
@@ -79,16 +81,19 @@ export function useAccountSync(ctx: AddonContext, paused: boolean): AccountSyncC
     });
   }, [paused]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  function applyLoad(r: LoadResult) {
+    setLmAccounts(r.lmAccounts);
+    setWfAccounts(r.wfAccounts);
+    setSavedMapping(r.savedMapping);
+    setDraft(r.savedMapping);
+    setWfCashBalances(r.wfCashBalances);
+  }
+
   async function loadAll() {
     setError(null);
     setLoading(true);
     try {
-      const r = await engine.loadAll();
-      setLmAccounts(r.lmAccounts);
-      setWfAccounts(r.wfAccounts);
-      setSavedMapping(r.savedMapping);
-      setDraft(r.savedMapping);
-      setWfCashBalances(r.wfCashBalances);
+      applyLoad(await engine.loadAll());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch accounts");
     } finally {
@@ -96,8 +101,37 @@ export function useAccountSync(ctx: AddonContext, paused: boolean): AccountSyncC
     }
   }
 
-  function handleRefresh() {
-    if (apiKey) loadAll();
+  /** Runs an import and records the outcome; returns false on failure. */
+  async function importBalances(
+    mapping: AccountMapping,
+    lm: LunchmoneyAccount[],
+    balances: Record<string, number>,
+  ) {
+    const r = await engine.syncBalances(mapping, lm, balances);
+    if (r.ok) {
+      setLastSynced(r.lastSynced);
+      setWfCashBalances(r.wfCashBalances);
+      setLastSyncResult({ imported: r.imported });
+    } else {
+      setError(r.errors.join(" | "));
+    }
+  }
+
+  async function handleSync() {
+    if (!apiKey) return;
+    setError(null);
+    setIsSyncing(true);
+    try {
+      // Quiet reload: keep the current table on screen while syncing.
+      const r = await engine.loadAll();
+      applyLoad(r);
+      const hasLinks = Object.values(r.savedMapping).some((e) => e.type === "existing");
+      if (hasLinks) await importBalances(r.savedMapping, r.lmAccounts, r.wfCashBalances);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sync failed");
+    } finally {
+      setIsSyncing(false);
+    }
   }
 
   function handleDraftChange(lmId: number, entry: MappingEntry) {
@@ -108,30 +142,20 @@ export function useAccountSync(ctx: AddonContext, paused: boolean): AccountSyncC
     setDraft(savedMapping);
   }
 
-  async function handleConfirm() {
+  async function handleConfirm(options: { importBalances?: boolean } = {}) {
     setIsSaving(true);
     try {
       const r = await engine.confirm(draft, lmAccounts!);
       setWfAccounts(r.wfAccounts);
       setSavedMapping(r.savedMapping);
       setDraft(r.savedMapping);
+      if (options.importBalances) {
+        await importBalances(r.savedMapping, lmAccounts!, wfCashBalances);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setIsSaving(false);
-    }
-  }
-
-  async function handleSyncBalances() {
-    if (!lmAccounts) return;
-    setIsSyncingBalances(true);
-    const r = await engine.syncBalances(savedMapping, lmAccounts);
-    setIsSyncingBalances(false);
-    if (r.ok) {
-      setLastSynced(r.lastSynced);
-      setWfCashBalances(r.wfCashBalances);
-    } else {
-      setError(r.errors.join(" | "));
     }
   }
 
@@ -147,13 +171,13 @@ export function useAccountSync(ctx: AddonContext, paused: boolean): AccountSyncC
     status: deriveStatus(apiKey, loading, lmAccounts, vm),
     error,
     lastSynced,
-    busy: { saving: isSaving, syncing: isSyncingBalances, refreshing: loading },
+    lastSyncResult,
+    busy: { saving: isSaving, syncing: isSyncing },
     actions: {
-      refresh: handleRefresh,
       changeDraft: handleDraftChange,
       undo: handleUndo,
       confirm: handleConfirm,
-      syncBalances: handleSyncBalances,
+      sync: handleSync,
     },
   };
 }

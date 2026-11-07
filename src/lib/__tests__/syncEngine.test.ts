@@ -113,6 +113,23 @@ describe("loadAll", () => {
     expect(result.wfCashBalances).toEqual({ w1: 250.0 });
   });
 
+  it("returns balances for every Wealthfolio account that could be linked, not just linked ones", async () => {
+    const ctx = createMockCtx();
+    vi.mocked(fetchAllAccounts).mockResolvedValue([lm(1)]);
+    vi.mocked(ctx.api.accounts.getAll).mockResolvedValue([
+      wfAccount("w1"),
+      { ...wfAccount("w2"), trackingMode: "TRANSACTIONS" },
+    ] as never);
+    vi.mocked(ctx.api.portfolio.getLatestValuations).mockResolvedValue([
+      { accountId: "w1", cashBalance: 42 } as never,
+    ]);
+
+    const result = await createSyncEngine(ctx).loadAll();
+
+    expect(ctx.api.portfolio.getLatestValuations).toHaveBeenCalledWith(["w1"]);
+    expect(result.wfCashBalances).toEqual({ w1: 42 });
+  });
+
   it("returns empty wfCashBalances when no existing mappings", async () => {
     const ctx = createMockCtx();
     vi.mocked(fetchAllAccounts).mockResolvedValue([lm(1)]);
@@ -336,6 +353,35 @@ describe("syncBalances", () => {
     await engine.syncBalances(mapping, [lm(1)]);
 
     expect(callOrder).toEqual(["snapshots.save", "portfolio.update", "getLatestValuations"]);
+  });
+
+  it("only imports balances that differ from Wealthfolio, and reports how many", async () => {
+    const ctx = createMockCtx();
+    const mapping = {
+      1: { type: "existing" as const, wfAccountId: "w1" },
+      2: { type: "existing" as const, wfAccountId: "w2" },
+      3: { type: "existing" as const, wfAccountId: "w3" },
+    };
+    // lm() balances are 100.00: w1 matches, w2 differs, w3 has no known balance
+    const result = await createSyncEngine(ctx).syncBalances(mapping, [lm(1), lm(2), lm(3)], {
+      w1: 100,
+      w2: 90,
+    });
+
+    const saved = vi.mocked(ctx.api.snapshots.save).mock.calls.map(([wfId]) => wfId);
+    expect(saved).toEqual(["w2", "w3"]);
+    expect(result).toMatchObject({ ok: true, imported: 2 });
+  });
+
+  it("still records the sync time when every balance already matches", async () => {
+    const ctx = createMockCtx();
+    const mapping = { 1: { type: "existing" as const, wfAccountId: "w1" } };
+    const result = await createSyncEngine(ctx).syncBalances(mapping, [lm(1)], { w1: 100 });
+
+    expect(ctx.api.snapshots.save).not.toHaveBeenCalled();
+    expect(ctx.api.portfolio.update).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: true, imported: 0 });
+    expect(await ctx.api.storage.get("lunchmoney-addon:last-synced")).not.toBeNull();
   });
 
   it("does not call portfolio.update on failure", async () => {

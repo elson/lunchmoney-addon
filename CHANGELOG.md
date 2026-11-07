@@ -8,6 +8,29 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- Guided linking: step through each Lunch Money account, see its balance next to
+  each Wealthfolio account's, pick one (suggestions shown), create one, or skip;
+  then review every change — links, new accounts, skips and balance imports —
+  before anything is saved. Offered automatically until accounts are linked, and
+  from **Link accounts** afterwards
+- Settings shows whether the token works (budget and user name), never displays
+  the saved token, can reveal the token being typed, and asks before removing it
+
+### Changed
+
+- **Sync** replaces the separate Refresh and Import Balances buttons: it fetches
+  from Lunch Money and imports only the balances that changed, then reports what
+  it did ("2 balances updated" / "all balances up to date")
+
+### Fixed
+
+- Don't allow linking a Lunch Money account to a Wealthfolio account in another
+  currency (the import would write e.g. a euro balance into a pound account).
+  The guided flow shows such accounts as unavailable; the table no longer offers
+  them
+
 ## [0.5.0] - 2026-11-07
 
 ### Added

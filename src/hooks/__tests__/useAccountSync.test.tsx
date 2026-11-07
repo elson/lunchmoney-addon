@@ -27,6 +27,27 @@ function makeMockEngine(overrides: Partial<SyncEngine> = {}): SyncEngine {
   };
 }
 
+function lmFixture(id: number, balance = "100.00") {
+  return {
+    id,
+    name: `LM ${id}`,
+    display_name: null,
+    type: "cash",
+    subtype: null,
+    currency: "usd",
+    balance,
+    status: "active",
+  };
+}
+
+function loaded(
+  lmAccounts: ReturnType<typeof lmFixture>[],
+  savedMapping: Record<number, unknown> = {},
+  wfCashBalances: Record<string, number> = {},
+) {
+  return { lmAccounts, wfAccounts: [], savedMapping, wfCashBalances };
+}
+
 beforeEach(() => {
   vi.restoreAllMocks();
 });
@@ -110,7 +131,7 @@ describe("useAccountSync", () => {
     await waitFor(() => expect(result.current.status.phase).toBe("ready"));
 
     expect(engine.loadAll).toHaveBeenCalledTimes(1);
-    expect(result.current.busy.refreshing).toBe(false);
+    expect(result.current.busy.syncing).toBe(false);
   });
 
   it("sets error state when engine.loadAll rejects", async () => {
@@ -122,7 +143,7 @@ describe("useAccountSync", () => {
 
     const { result } = renderHook(() => useAccountSync(ctx, false));
     await waitFor(() => expect(result.current.error).toBe("Network error"));
-    expect(result.current.busy.refreshing).toBe(false);
+    expect(result.current.busy.syncing).toBe(false);
   });
 
   it("actions.changeDraft marks isDirty=true", async () => {
@@ -287,168 +308,167 @@ describe("useAccountSync", () => {
     expect(result.current.busy.saving).toBe(false);
   });
 
-  it("actions.refresh calls engine.loadAll again", async () => {
+  it("actions.sync re-fetches from Lunch Money, then imports balances that differ", async () => {
     const ctx = createMockCtx();
     vi.mocked(ctx.api.secrets.get).mockResolvedValue("test-key");
+    const saved = { 1: { type: "existing" as const, wfAccountId: "w1" } };
     const loadAll = vi
       .fn()
-      .mockResolvedValueOnce({
-        lmAccounts: [
-          {
-            id: 1,
-            name: "LM 1",
-            display_name: null,
-            type: "cash",
-            subtype: null,
-            currency: "usd",
-            balance: "100.00",
-            status: "active",
-          },
-        ],
-        wfAccounts: [],
-        savedMapping: {},
-        wfCashBalances: {},
-      })
-      .mockResolvedValue({
-        lmAccounts: [
-          {
-            id: 1,
-            name: "LM 1",
-            display_name: null,
-            type: "cash",
-            subtype: null,
-            currency: "usd",
-            balance: "100.00",
-            status: "active",
-          },
-          {
-            id: 2,
-            name: "LM 2",
-            display_name: null,
-            type: "cash",
-            subtype: null,
-            currency: "usd",
-            balance: "200.00",
-            status: "active",
-          },
-        ],
-        wfAccounts: [],
-        savedMapping: {},
-        wfCashBalances: {},
-      });
+      .mockResolvedValueOnce(loaded([lmFixture(1)], saved))
+      .mockResolvedValue(loaded([lmFixture(1, "150.00"), lmFixture(2)], saved, { w1: 100 }));
+    const synced = new Date();
+    const syncBalances = vi.fn().mockResolvedValue({
+      ok: true,
+      lastSynced: synced,
+      wfCashBalances: { w1: 150 },
+      imported: 1,
+    });
+    vi.mocked(createSyncEngine).mockReturnValue(makeMockEngine({ loadAll, syncBalances }));
+
+    const { result } = renderHook(() => useAccountSync(ctx, false));
+    await waitFor(() => expect(result.current.status.phase).toBe("ready"));
+
+    await act(async () => {
+      await result.current.actions.sync();
+    });
+
+    expect(loadAll).toHaveBeenCalledTimes(2);
+    expect(syncBalances).toHaveBeenCalledWith(saved, [lmFixture(1, "150.00"), lmFixture(2)], {
+      w1: 100,
+    });
+    expect(result.current.lastSynced).toBe(synced);
+    expect(result.current.lastSyncResult).toEqual({ imported: 1 });
+    expect(result.current.busy.syncing).toBe(false);
+    if (result.current.status.phase === "ready") {
+      expect(result.current.status.vm.rows).toHaveLength(2);
+    }
+  });
+
+  it("actions.sync keeps the table on screen while it runs", async () => {
+    const ctx = createMockCtx();
+    vi.mocked(ctx.api.secrets.get).mockResolvedValue("test-key");
+    let resolveSecond!: (v: unknown) => void;
+    const loadAll = vi
+      .fn()
+      .mockResolvedValueOnce(loaded([lmFixture(1)]))
+      .mockImplementation(() => new Promise((r) => (resolveSecond = r)));
     vi.mocked(createSyncEngine).mockReturnValue(makeMockEngine({ loadAll }));
 
     const { result } = renderHook(() => useAccountSync(ctx, false));
-    await waitFor(() => {
-      expect(result.current.status.phase).toBe("ready");
-      if (result.current.status.phase === "ready") {
-        expect(result.current.status.vm.rows).toHaveLength(1);
-      }
-    });
+    await waitFor(() => expect(result.current.status.phase).toBe("ready"));
 
+    let pending!: Promise<void>;
     act(() => {
-      result.current.actions.refresh();
+      pending = result.current.actions.sync();
     });
-    await waitFor(() => {
-      if (result.current.status.phase === "ready") {
-        expect(result.current.status.vm.rows).toHaveLength(2);
-      }
+    expect(result.current.busy.syncing).toBe(true);
+    expect(result.current.status.phase).toBe("ready");
+    await act(async () => {
+      resolveSecond(loaded([lmFixture(1)]));
+      await pending;
     });
   });
 
-  it("actions.syncBalances is a no-op when lmAccounts not loaded", async () => {
+  it("actions.sync only refreshes when nothing is linked", async () => {
     const ctx = createMockCtx();
-    vi.mocked(ctx.api.secrets.get).mockResolvedValue(null);
+    vi.mocked(ctx.api.secrets.get).mockResolvedValue("test-key");
+    const engine = makeMockEngine({ loadAll: vi.fn().mockResolvedValue(loaded([lmFixture(1)])) });
+    vi.mocked(createSyncEngine).mockReturnValue(engine);
+
+    const { result } = renderHook(() => useAccountSync(ctx, false));
+    await waitFor(() => expect(result.current.status.phase).toBe("ready"));
+    await act(async () => {
+      await result.current.actions.sync();
+    });
+
+    expect(engine.loadAll).toHaveBeenCalledTimes(2);
+    expect(engine.syncBalances).not.toHaveBeenCalled();
+  });
+
+  it("actions.sync is a no-op without an API key", async () => {
+    const ctx = createMockCtx();
     const engine = makeMockEngine();
     vi.mocked(createSyncEngine).mockReturnValue(engine);
 
     const { result } = renderHook(() => useAccountSync(ctx, false));
     await waitFor(() => expect(result.current.status.phase).toBe("no-api-key"));
-
     await act(async () => {
-      await result.current.actions.syncBalances();
+      await result.current.actions.sync();
     });
 
-    expect(engine.syncBalances).not.toHaveBeenCalled();
+    expect(engine.loadAll).not.toHaveBeenCalled();
   });
 
-  it("actions.syncBalances sets error when engine returns ok:false", async () => {
+  it("actions.sync reports import errors", async () => {
     const ctx = createMockCtx();
     vi.mocked(ctx.api.secrets.get).mockResolvedValue("test-key");
     vi.mocked(createSyncEngine).mockReturnValue(
       makeMockEngine({
-        loadAll: vi.fn().mockResolvedValue({
-          lmAccounts: [
-            {
-              id: 1,
-              name: "LM 1",
-              display_name: null,
-              type: "cash",
-              subtype: null,
-              currency: "usd",
-              balance: "100.00",
-              status: "active",
-            },
-          ],
-          wfAccounts: [],
-          savedMapping: { 1: { type: "existing", wfAccountId: "w1" } },
-          wfCashBalances: {},
-        }),
+        loadAll: vi
+          .fn()
+          .mockResolvedValue(
+            loaded([lmFixture(1)], { 1: { type: "existing", wfAccountId: "w1" } }),
+          ),
         syncBalances: vi.fn().mockResolvedValue({ ok: false, errors: ["Snapshot failed"] }),
       }),
     );
 
     const { result } = renderHook(() => useAccountSync(ctx, false));
     await waitFor(() => expect(result.current.status.phase).toBe("ready"));
-
     await act(async () => {
-      await result.current.actions.syncBalances();
+      await result.current.actions.sync();
     });
 
     expect(result.current.error).toContain("Snapshot failed");
     expect(result.current.busy.syncing).toBe(false);
   });
 
-  it("actions.syncBalances updates lastSynced and wfCashBalances on success", async () => {
+  it("actions.sync reports a failed refresh", async () => {
     const ctx = createMockCtx();
     vi.mocked(ctx.api.secrets.get).mockResolvedValue("test-key");
-    const newDate = new Date();
     vi.mocked(createSyncEngine).mockReturnValue(
       makeMockEngine({
-        loadAll: vi.fn().mockResolvedValue({
-          lmAccounts: [
-            {
-              id: 1,
-              name: "LM 1",
-              display_name: null,
-              type: "cash",
-              subtype: null,
-              currency: "usd",
-              balance: "100.00",
-              status: "active",
-            },
-          ],
-          wfAccounts: [],
-          savedMapping: { 1: { type: "existing", wfAccountId: "w1" } },
-          wfCashBalances: {},
-        }),
-        syncBalances: vi.fn().mockResolvedValue({
-          ok: true,
-          lastSynced: newDate,
-          wfCashBalances: { w1: 100.0 },
-        }),
+        loadAll: vi
+          .fn()
+          .mockResolvedValueOnce(loaded([lmFixture(1)]))
+          .mockRejectedValue(new Error("offline")),
       }),
     );
 
     const { result } = renderHook(() => useAccountSync(ctx, false));
     await waitFor(() => expect(result.current.status.phase).toBe("ready"));
-
     await act(async () => {
-      await result.current.actions.syncBalances();
+      await result.current.actions.sync();
     });
 
-    expect(result.current.lastSynced).toBe(newDate);
-    expect(result.current.busy.syncing).toBe(false);
+    expect(result.current.error).toBe("offline");
+    expect(result.current.status.phase).toBe("ready");
+  });
+
+  it("actions.confirm can import balances straight after saving the links", async () => {
+    const ctx = createMockCtx();
+    vi.mocked(ctx.api.secrets.get).mockResolvedValue("test-key");
+    const saved = { 1: { type: "existing" as const, wfAccountId: "w1" } };
+    const engine = makeMockEngine({
+      loadAll: vi.fn().mockResolvedValue(loaded([lmFixture(1)], {}, { w1: 50 })),
+      confirm: vi.fn().mockResolvedValue({ savedMapping: saved, wfAccounts: [] }),
+      syncBalances: vi.fn().mockResolvedValue({
+        ok: true,
+        lastSynced: new Date(),
+        wfCashBalances: { w1: 100 },
+        imported: 1,
+      }),
+    });
+    vi.mocked(createSyncEngine).mockReturnValue(engine);
+
+    const { result } = renderHook(() => useAccountSync(ctx, false));
+    await waitFor(() => expect(result.current.status.phase).toBe("ready"));
+    await act(async () => {
+      await result.current.actions.confirm({ importBalances: true });
+    });
+
+    expect(engine.syncBalances).toHaveBeenCalledWith(saved, [lmFixture(1)], { w1: 50 });
+    expect(result.current.lastSyncResult).toEqual({ imported: 1 });
   });
 });
 

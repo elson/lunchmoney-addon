@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AddonContext } from "@wealthfolio/addon-sdk";
-import { fetchAllAccounts } from "../lunchmoney";
+import { checkConnection, fetchAllAccounts } from "../lunchmoney";
 import { createMockCtx } from "../../test/mockCtx";
 
 const makeAccount = (id: number) => ({
@@ -114,5 +114,35 @@ describe("fetchAllAccounts", () => {
       body: "<html>",
     });
     expect(await fetchAllAccounts(ctx)).toEqual([]);
+  });
+});
+
+describe("checkConnection", () => {
+  it("reports the budget and user the saved token belongs to", async () => {
+    const ctx = createMockCtx();
+    mockNetwork(ctx, {
+      "/me": { status: 200, data: { name: "Stephen", budget_name: "Family budget" } },
+    });
+    expect(await checkConnection(ctx)).toEqual({
+      ok: true,
+      budgetName: "Family budget",
+      userName: "Stephen",
+    });
+    expect(vi.mocked(ctx.api.network.request).mock.calls[0][0]).toMatchObject({
+      method: "GET",
+      auth: { type: "bearer", secretKey: "lunchmoney-api-key" },
+    });
+  });
+
+  it("reports a rejected token separately from other failures", async () => {
+    const ctx = createMockCtx();
+    mockNetwork(ctx, { "/me": { status: 401 } });
+    expect(await checkConnection(ctx)).toEqual({ ok: false, reason: "unauthorized" });
+  });
+
+  it("reports other failures as errors with the message", async () => {
+    const ctx = createMockCtx();
+    vi.mocked(ctx.api.network.request).mockRejectedValue(new Error("offline"));
+    expect(await checkConnection(ctx)).toEqual({ ok: false, reason: "error", message: "offline" });
   });
 });

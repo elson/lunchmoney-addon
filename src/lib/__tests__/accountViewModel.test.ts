@@ -442,3 +442,109 @@ describe("buildAccountViewModel", () => {
     });
   });
 });
+
+describe("linking wizard support", () => {
+  describe("candidatesFor", () => {
+    it("offers Wealthfolio accounts that track holdings, with their current balances", () => {
+      const vm = buildAccountViewModel(
+        [lm(1)],
+        [wf("w1"), wf("w2", { trackingMode: "TRANSACTIONS" } as Partial<Account>)],
+        {},
+        {},
+        { w1: 55 },
+      );
+      expect(vm.candidatesFor(1).map((c) => [c.account.id, c.balance])).toEqual([["w1", 55]]);
+    });
+
+    it("hides accounts already chosen for another Lunch Money account, but keeps this one's", () => {
+      const draft: AccountMapping = {
+        1: { type: "existing", wfAccountId: "w1" },
+        2: { type: "existing", wfAccountId: "w2" },
+      };
+      const vm = buildAccountViewModel(
+        [lm(1), lm(2)],
+        [wf("w1"), wf("w2"), wf("w3")],
+        draft,
+        {},
+        {},
+      );
+      expect(vm.candidatesFor(1).map((c) => c.account.id)).toEqual(["w1", "w3"]);
+    });
+
+    it("suggests an account with the same name, or the same currency and balance, and lists it first", () => {
+      const vm = buildAccountViewModel(
+        [lm(1, { display_name: "Joint Account" }), lm(2, { balance: "250.00" })],
+        [
+          wf("a", { name: "Alpha" }),
+          wf("j", { name: "joint account " }),
+          wf("m", { name: "Match" }),
+        ],
+        {},
+        {},
+        { m: 250 },
+      );
+      const forJoint = vm.candidatesFor(1);
+      expect(forJoint.map((c) => c.account.id)).toEqual(["j", "a", "m"]);
+      expect(forJoint.map((c) => c.suggested)).toEqual([true, false, false]);
+      const forTwo = vm.candidatesFor(2);
+      expect(forTwo[0]).toMatchObject({ suggested: true, balanceMatches: true });
+      expect(forTwo[0].account.id).toBe("m");
+    });
+
+    it("never suggests an account in another currency, even with the same name", () => {
+      const vm = buildAccountViewModel(
+        [lm(1, { display_name: "Joint", currency: "eur" })],
+        [wf("j", { name: "Joint" })],
+        {},
+        {},
+        {},
+      );
+      expect(vm.candidatesFor(1)[0]).toMatchObject({ suggested: false, currencyMatches: false });
+    });
+
+    it("flags a currency mismatch", () => {
+      const vm = buildAccountViewModel(
+        [lm(1, { currency: "gbp" })],
+        [wf("w1", { currency: "EUR" } as Partial<Account>)],
+        {},
+        {},
+        {},
+      );
+      expect(vm.candidatesFor(1)[0]).toMatchObject({ currencyMatches: false, balance: null });
+    });
+  });
+
+  describe("importPlan", () => {
+    it("lists the balances that confirming would import, skipping ones that already match", () => {
+      const draft: AccountMapping = {
+        1: { type: "existing", wfAccountId: "w1" },
+        2: { type: "existing", wfAccountId: "w2" },
+        3: { type: "create" },
+        4: { type: "ignore" },
+      };
+      const vm = buildAccountViewModel(
+        [lm(1), lm(2), lm(3), lm(4)],
+        [wf("w1"), wf("w2")],
+        draft,
+        {},
+        { w1: 100, w2: 80 },
+      );
+      expect(vm.importPlan.map((p) => [p.lm.id, p.target?.id ?? "new", p.from, p.to])).toEqual([
+        [2, "w2", 80, 100],
+        [3, "new", null, 100],
+      ]);
+    });
+  });
+
+  it("lists skipped accounts", () => {
+    const vm = buildAccountViewModel([lm(1), lm(2)], [], { 1: { type: "create" } }, {}, {});
+    expect(vm.skipped.map((a) => a.id)).toEqual([2]);
+  });
+
+  it("keeps wizard data on filtered views", () => {
+    const vm = buildAccountViewModel([lm(1), lm(2)], [wf("w1")], {}, {}, {});
+    const filtered = vm.filtered("LM 2", "all");
+    expect(filtered.candidatesFor(1)).toHaveLength(1);
+    expect(filtered.skipped).toHaveLength(2);
+  });
+});

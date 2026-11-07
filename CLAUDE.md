@@ -72,6 +72,10 @@ must be added to the `@theme inline reference` block in `src/addon.css`.
   create/link/relink/unlink/unchanged buckets. Pure function, no React.
 - `filterAccounts.ts` — Filters LM accounts by search query and tab. Pure
   function, no React.
+- `balances.ts` — `balancesMatch` (half-cent tolerance), shared by the view
+  model and sync engine.
+- `format.ts` — `formatMoney` for ISO currency amounts.
+- `routes.ts` — route ids/paths; must match `manifest.json` `contributes`.
 
 ## Testing
 

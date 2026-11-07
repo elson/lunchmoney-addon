@@ -13,26 +13,7 @@ import {
 import type { LunchmoneyAccount } from "../lib/lunchmoney";
 import type { AccountViewModel, AccountRowVM } from "../lib/accountViewModel";
 import type { MappingEntry } from "../types";
-
-// ─── Formatting ──────────────────────────────────────────────────────────────
-
-function formatMoney(amount: number, currency: string, signed = false): string {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: currency.toUpperCase(),
-      signDisplay: signed ? "exceptZero" : "auto",
-    }).format(amount);
-  } catch {
-    // Unknown currency code — fall back to a plain number with the code.
-    const n = amount.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-      signDisplay: signed ? "exceptZero" : "auto",
-    });
-    return `${n} ${currency.toUpperCase()}`;
-  }
-}
+import { formatMoney } from "../lib/format";
 
 const SOURCE_LABEL = { manual: "Manual", synced: "Synced" } as const;
 
@@ -98,6 +79,8 @@ function WfTarget({ row, wfAccounts, claimedWfIds, onDraftChange, onNavigate }: 
   const available = wfAccounts.filter(
     (a) =>
       a.trackingMode === "HOLDINGS" &&
+      // Importing into an account in another currency would corrupt its balance.
+      a.currency.toUpperCase() === lm.currency.toUpperCase() &&
       String(a.id) !== currentWfId &&
       !claimedWfIds.has(String(a.id)),
   );

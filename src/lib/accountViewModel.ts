@@ -2,6 +2,7 @@ import type { Account } from "@wealthfolio/addon-sdk";
 import type { LunchmoneyAccount } from "./lunchmoney";
 import type { AccountMapping, MappingEntry } from "../types";
 import { mappingsEqual } from "./mapping";
+import { balancesMatch as balancesEqual } from "./balances";
 
 export type FilterTab = "all" | "linked" | "skipped";
 
@@ -104,6 +105,24 @@ export interface AccountRowGroup {
   readonly rows: readonly AccountRowVM[];
 }
 
+export interface LinkCandidate {
+  readonly account: Account;
+  /** Current Wealthfolio cash balance, or null if unknown. */
+  readonly balance: number | null;
+  /** Same name, or same currency and balance — probably the right account. */
+  readonly suggested: boolean;
+  readonly balanceMatches: boolean;
+  readonly currencyMatches: boolean;
+}
+
+export interface BalanceImport {
+  readonly lm: LunchmoneyAccount;
+  /** The Wealthfolio account, or null for one that will be created. */
+  readonly target: Account | null;
+  readonly from: number | null;
+  readonly to: number;
+}
+
 export interface AccountViewModel {
   readonly rows: readonly AccountRowVM[];
   readonly groups: readonly AccountRowGroup[];
@@ -120,6 +139,12 @@ export interface AccountViewModel {
    * Returns `this` when search is empty and tab is "all".
    */
   filtered(search: string, tab: FilterTab): AccountViewModel;
+  /** Wealthfolio accounts this Lunch Money account can be linked to, suggested ones first. */
+  candidatesFor(lmId: number): readonly LinkCandidate[];
+  /** Balances that confirming the draft would import (matching ones are skipped). */
+  readonly importPlan: readonly BalanceImport[];
+  /** Lunch Money accounts the draft skips. */
+  readonly skipped: readonly LunchmoneyAccount[];
 }
 
 interface ViewModelCore {
@@ -128,6 +153,64 @@ interface ViewModelCore {
   readonly isDirty: boolean;
   readonly claimedWfIds: ReadonlySet<string>;
   readonly lazyChanges: () => ChangeClassification;
+  readonly candidatesFor: (lmId: number) => readonly LinkCandidate[];
+  readonly lazyImportPlan: () => readonly BalanceImport[];
+  readonly skipped: readonly LunchmoneyAccount[];
+}
+
+const normalizeName = (name: string) => name.trim().toLowerCase();
+
+function linkCandidates(
+  lmId: number,
+  lmAccounts: readonly LunchmoneyAccount[],
+  wfAccounts: readonly Account[],
+  draft: AccountMapping,
+  wfCashBalances: Record<string, number>,
+): LinkCandidate[] {
+  const lm = lmAccounts.find((a) => a.id === lmId);
+  if (!lm) return [];
+  const claimedByOthers = new Set(
+    Object.entries(draft)
+      .filter(([id, e]) => Number(id) !== lmId && e.type === "existing")
+      .map(([, e]) => (e as { wfAccountId: string }).wfAccountId),
+  );
+  const lmBalance = parseFloat(lm.balance);
+  const lmName = normalizeName(lm.display_name ?? lm.name);
+
+  const candidates = wfAccounts
+    .filter((a) => a.trackingMode === "HOLDINGS" && !claimedByOthers.has(String(a.id)))
+    .map((account): LinkCandidate => {
+      const id = String(account.id);
+      const balance = id in wfCashBalances ? wfCashBalances[id] : null;
+      const currencyMatches = account.currency.toUpperCase() === lm.currency.toUpperCase();
+      const balanceMatches = balance !== null && balancesEqual(balance, lmBalance);
+      const suggested =
+        currencyMatches && (normalizeName(account.name) === lmName || balanceMatches);
+      return { account, balance, suggested, balanceMatches, currencyMatches };
+    });
+  // Stable: suggested first, then same-currency accounts, then ones that can't be linked.
+  const rank = (c: LinkCandidate) => (c.suggested ? 0 : c.currencyMatches ? 1 : 2);
+  return [...candidates].sort((a, b) => rank(a) - rank(b));
+}
+
+function planBalanceImports(
+  rows: readonly AccountRowVM[],
+  wfCashBalances: Record<string, number>,
+): BalanceImport[] {
+  const plan: BalanceImport[] = [];
+  for (const row of rows) {
+    const to = row.lmBalance;
+    if (row.entry.type === "create") {
+      plan.push({ lm: row.lm, target: null, from: null, to });
+    } else if (row.entry.type === "existing" && row.wfAccount) {
+      const id = row.entry.wfAccountId;
+      const from = id in wfCashBalances ? wfCashBalances[id] : null;
+      if (from === null || !balancesEqual(from, to)) {
+        plan.push({ lm: row.lm, target: row.wfAccount, from, to });
+      }
+    }
+  }
+  return plan;
 }
 
 function createView(rows: readonly AccountRowVM[], core: ViewModelCore): AccountViewModel {
@@ -142,6 +225,11 @@ function createView(rows: readonly AccountRowVM[], core: ViewModelCore): Account
     get changes() {
       return core.lazyChanges();
     },
+    candidatesFor: core.candidatesFor,
+    get importPlan() {
+      return core.lazyImportPlan();
+    },
+    skipped: core.skipped,
     filtered(search: string, tab: FilterTab): AccountViewModel {
       if (!search.trim() && tab === "all") return vm;
       const query = search.trim().toLowerCase();
@@ -192,7 +280,7 @@ export function buildAccountViewModel(
         : null;
 
     const balanceDelta = wfBalance !== null ? wfBalance - lmBalance : null;
-    const balancesMatch = balanceDelta !== null && Math.abs(balanceDelta) < 0.005;
+    const balancesMatch = wfBalance !== null && balancesEqual(wfBalance, lmBalance);
 
     return { lm, entry, isLinked, wfAccount, lmBalance, wfBalance, balanceDelta, balancesMatch };
   });
@@ -202,6 +290,7 @@ export function buildAccountViewModel(
   const isDirty = !mappingsEqual(draft, savedMapping);
 
   let cachedChanges: ChangeClassification | undefined;
+  let cachedPlan: readonly BalanceImport[] | undefined;
   const core: ViewModelCore = {
     wfAccounts,
     linkedCount,
@@ -209,6 +298,9 @@ export function buildAccountViewModel(
     claimedWfIds: claimed,
     lazyChanges: () =>
       (cachedChanges ??= classifyChanges(draft, savedMapping, lmAccounts, wfAccounts)),
+    candidatesFor: (lmId) => linkCandidates(lmId, lmAccounts, wfAccounts, draft, wfCashBalances),
+    lazyImportPlan: () => (cachedPlan ??= planBalanceImports(rows, wfCashBalances)),
+    skipped: rows.filter((r) => r.entry.type === "ignore").map((r) => r.lm),
   };
 
   return createView(rows, core);

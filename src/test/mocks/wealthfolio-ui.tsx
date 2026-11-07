@@ -171,6 +171,42 @@ export const DropdownMenuItem = ({
 export const DropdownMenuSeparator = () => <hr data-testid="dropdown-separator" />;
 
 export const Icons = {
+  ArrowLeft: ({ className }: { className?: string }) => (
+    <span className={className} data-testid="icon-arrow-left" />
+  ),
+  RefreshCw: ({ className }: { className?: string }) => (
+    <span className={className} data-testid="icon-refresh-cw" />
+  ),
+  Eye: ({ className }: { className?: string }) => (
+    <span className={className} data-testid="icon-eye" />
+  ),
+  EyeOff: ({ className }: { className?: string }) => (
+    <span className={className} data-testid="icon-eye-off" />
+  ),
+  Link: ({ className }: { className?: string }) => (
+    <span className={className} data-testid="icon-link" />
+  ),
+  Plus: ({ className }: { className?: string }) => (
+    <span className={className} data-testid="icon-plus" />
+  ),
+  Check: ({ className }: { className?: string }) => (
+    <span className={className} data-testid="icon-check" />
+  ),
+  Trash: ({ className }: { className?: string }) => (
+    <span className={className} data-testid="icon-trash" />
+  ),
+  ShieldCheck: ({ className }: { className?: string }) => (
+    <span className={className} data-testid="icon-shield-check" />
+  ),
+  AlertCircle: ({ className }: { className?: string }) => (
+    <span className={className} data-testid="icon-alert-circle" />
+  ),
+  Building: ({ className }: { className?: string }) => (
+    <span className={className} data-testid="icon-building" />
+  ),
+  Wallet: ({ className }: { className?: string }) => (
+    <span className={className} data-testid="icon-wallet" />
+  ),
   ExternalLink: ({ className }: { className?: string }) => (
     <span className={className} data-testid="icon-external-link" />
   ),
@@ -214,3 +250,91 @@ export const Icons = {
 
 export const cn = (...classes: (string | undefined | null | false)[]) =>
   classes.filter(Boolean).join(" ");
+
+// ─── Card / Badge / Alert: layout-only passthroughs ──────────────────────────
+type Div = React.HTMLAttributes<HTMLDivElement> & { variant?: string };
+const passDiv =
+  (testId?: string) =>
+  ({ variant: _v, ...p }: Div) => <div data-testid={testId} {...p} />;
+export const Card = passDiv("card");
+export const CardHeader = passDiv();
+export const CardContent = passDiv();
+export const CardFooter = passDiv();
+export const CardAction = passDiv();
+// Real CardTitle renders a <div>, not a heading.
+export const CardTitle = passDiv();
+export const CardDescription = ({ variant: _v, ...p }: Div) => <p {...p} />;
+export const Alert = ({ variant: _v, ...p }: Div) => <div role="alert" {...p} />;
+export const AlertTitle = passDiv();
+export const AlertDescription = passDiv();
+export const Badge = ({
+  variant: _v,
+  ...p
+}: React.HTMLAttributes<HTMLSpanElement> & { variant?: string }) => <span {...p} />;
+
+// Base UI Progress: value 0–100.
+export const Progress = ({ value, ...p }: { value?: number | null } & Div) => (
+  <div role="progressbar" aria-valuenow={value ?? undefined} {...p} />
+);
+
+// Base UI Checkbox: checked + onCheckedChange(checked).
+export const Checkbox = ({
+  checked,
+  onCheckedChange,
+  id,
+  ...p
+}: {
+  checked?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
+  id?: string;
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "checked">) => (
+  <input
+    type="checkbox"
+    id={id}
+    checked={checked}
+    onChange={(e) => onCheckedChange?.(e.target.checked)}
+    {...p}
+  />
+);
+
+// Controlled AlertDialog: renders its content only while open.
+const AlertDialogContext = React.createContext<{
+  open: boolean;
+  onOpenChange?: (open: boolean) => void;
+}>({ open: false });
+export const AlertDialog = ({
+  open = false,
+  onOpenChange,
+  children,
+}: {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  children: React.ReactNode;
+}) => (
+  <AlertDialogContext.Provider value={{ open, onOpenChange }}>
+    {children}
+  </AlertDialogContext.Provider>
+);
+export const AlertDialogContent = ({ children }: { children: React.ReactNode }) => {
+  const { open } = React.useContext(AlertDialogContext);
+  return open ? <div role="alertdialog">{children}</div> : null;
+};
+export const AlertDialogHeader = passDiv();
+export const AlertDialogFooter = passDiv();
+export const AlertDialogTitle = ({ variant: _v, ...p }: Div) => <h2 {...p} />;
+export const AlertDialogDescription = ({ variant: _v, ...p }: Div) => <p {...p} />;
+export const AlertDialogCancel = ({
+  variant: _v,
+  size: _s,
+  ...p
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: string; size?: string }) => {
+  const { onOpenChange } = React.useContext(AlertDialogContext);
+  return <button type="button" onClick={() => onOpenChange?.(false)} {...p} />;
+};
+export const AlertDialogAction = ({
+  variant: _v,
+  size: _s,
+  ...p
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: string; size?: string }) => (
+  <button type="button" {...p} />
+);

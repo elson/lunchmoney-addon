@@ -2,6 +2,7 @@ import type { AddonContext, Account } from "@wealthfolio/addon-sdk";
 import type { LunchmoneyAccount } from "./lunchmoney";
 import { fetchAllAccounts } from "./lunchmoney";
 import { loadMapping, saveMapping, saveLastSynced, cleanMapping } from "./mapping";
+import { balancesMatch } from "./balances";
 import type { AccountMapping } from "../types";
 
 export interface LoadResult {
@@ -17,15 +18,17 @@ export interface ConfirmResult {
 }
 
 export type SyncBalancesResult =
-  | { ok: true; lastSynced: Date; wfCashBalances: Record<string, number> }
+  | { ok: true; lastSynced: Date; wfCashBalances: Record<string, number>; imported: number }
   | { ok: false; errors: string[] };
 
 export interface SyncEngine {
   loadAll(): Promise<LoadResult>;
   confirm(draft: AccountMapping, lmAccounts: LunchmoneyAccount[]): Promise<ConfirmResult>;
+  /** Imports Lunch Money balances for linked accounts whose Wealthfolio balance differs. */
   syncBalances(
     savedMapping: AccountMapping,
     lmAccounts: LunchmoneyAccount[],
+    wfCashBalances?: Record<string, number>,
   ): Promise<SyncBalancesResult>;
 }
 
@@ -58,14 +61,11 @@ async function saveSnapshot(
 
 async function loadValuations(
   ctx: AddonContext,
-  mapping: AccountMapping,
+  wfIds: readonly string[],
 ): Promise<Record<string, number>> {
-  const wfIds = Object.values(mapping)
-    .filter((e): e is { type: "existing"; wfAccountId: string } => e.type === "existing")
-    .map((e) => e.wfAccountId);
   if (wfIds.length === 0) return {};
   try {
-    const valuations = await ctx.api.portfolio.getLatestValuations(wfIds);
+    const valuations = await ctx.api.portfolio.getLatestValuations([...wfIds]);
     const balances: Record<string, number> = {};
     for (const v of valuations) {
       balances[v.accountId] = v.cashBalance;
@@ -74,6 +74,19 @@ async function loadValuations(
   } catch {
     return {};
   }
+}
+
+function linkedWfIds(mapping: AccountMapping): string[] {
+  return Object.values(mapping)
+    .filter((e): e is { type: "existing"; wfAccountId: string } => e.type === "existing")
+    .map((e) => e.wfAccountId);
+}
+
+/** Linked accounts plus every account a Lunch Money account could be linked to. */
+function balanceCandidates(mapping: AccountMapping, wfAccounts: Account[]): string[] {
+  const ids = new Set(linkedWfIds(mapping));
+  for (const a of wfAccounts) if (a.trackingMode === "HOLDINGS") ids.add(String(a.id));
+  return [...ids];
 }
 
 export function createSyncEngine(ctx: AddonContext): SyncEngine {
@@ -95,7 +108,7 @@ export function createSyncEngine(ctx: AddonContext): SyncEngine {
         await saveMapping(ctx, cleaned);
       }
 
-      const wfCashBalances = await loadValuations(ctx, cleaned);
+      const wfCashBalances = await loadValuations(ctx, balanceCandidates(cleaned, wfData));
       return { lmAccounts: lmData, wfAccounts: wfData, savedMapping: cleaned, wfCashBalances };
     },
 
@@ -117,18 +130,22 @@ export function createSyncEngine(ctx: AddonContext): SyncEngine {
       return { savedMapping: finalDraft, wfAccounts };
     },
 
-    async syncBalances(savedMapping, lmAccounts) {
+    async syncBalances(savedMapping, lmAccounts, wfCashBalances = {}) {
       const today = new Date().toISOString().slice(0, 10);
       const errors: string[] = [];
+      let imported = 0;
 
       for (const [idStr, entry] of Object.entries(savedMapping)) {
         if (entry.type !== "existing") continue;
         const lmId = Number(idStr);
         const lm = lmAccounts.find((a) => a.id === lmId);
         if (!lm) continue;
+        const current = wfCashBalances[entry.wfAccountId];
+        if (current !== undefined && balancesMatch(current, parseFloat(lm.balance))) continue;
 
         try {
           await saveSnapshot(ctx, entry.wfAccountId, lm.currency, lm.balance, today);
+          imported++;
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           ctx.api.logger.error(`Balance sync failed for LM account ${lmId}: ${msg}`);
@@ -142,9 +159,12 @@ export function createSyncEngine(ctx: AddonContext): SyncEngine {
 
       await saveLastSynced(ctx);
       const lastSynced = new Date();
+      if (imported === 0) return { ok: true, lastSynced, wfCashBalances, imported };
       await ctx.api.portfolio.update();
-      const wfCashBalances = await loadValuations(ctx, savedMapping);
-      return { ok: true, lastSynced, wfCashBalances };
+      const reloaded = await loadValuations(ctx, [
+        ...new Set([...Object.keys(wfCashBalances), ...linkedWfIds(savedMapping)]),
+      ]);
+      return { ok: true, lastSynced, wfCashBalances: { ...wfCashBalances, ...reloaded }, imported };
     },
   };
 }

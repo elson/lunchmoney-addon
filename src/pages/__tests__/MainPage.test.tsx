@@ -38,19 +38,24 @@ const wf = (id: string): Account =>
     trackingMode: "HOLDINGS",
   }) as unknown as Account;
 
+function makeActions(overrides: Partial<AccountSyncController["actions"]> = {}) {
+  return {
+    changeDraft: vi.fn(),
+    undo: vi.fn(),
+    confirm: vi.fn().mockResolvedValue(undefined),
+    sync: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
+}
+
 function makeController(overrides: Partial<AccountSyncController> = {}): AccountSyncController {
   return {
     status: { phase: "checking" },
     error: null,
     lastSynced: null,
-    busy: { saving: false, syncing: false, refreshing: false },
-    actions: {
-      refresh: vi.fn(),
-      changeDraft: vi.fn(),
-      undo: vi.fn(),
-      confirm: vi.fn().mockResolvedValue(undefined),
-      syncBalances: vi.fn().mockResolvedValue(undefined),
-    },
+    lastSyncResult: null,
+    busy: { saving: false, syncing: false },
+    actions: makeActions(),
     ...overrides,
   };
 }
@@ -117,17 +122,125 @@ describe("MainPage", () => {
     expect(screen.queryByText("Undo")).toBeNull();
   });
 
-  it("shows Import Balances button when linkedCount > 0", () => {
+  describe("sync", () => {
     const saved = { 1: { type: "existing" as const, wfAccountId: "w1" } };
-    vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1)], [wf("w1")], saved, saved));
-    render(<MainPage ctx={createMockCtx()} />);
-    expect(screen.getByText("Import Balances")).toBeInTheDocument();
+
+    it("has a single Sync button that refreshes and imports in one go", async () => {
+      const actions = makeActions();
+      vi.mocked(useAccountSync).mockReturnValue(
+        readyController([lm(1)], [wf("w1")], saved, saved, { actions }),
+      );
+      render(<MainPage ctx={createMockCtx()} />);
+      expect(screen.queryByText("Import Balances")).toBeNull();
+      expect(screen.queryByTitle("Refresh Lunch Money accounts")).toBeNull();
+      await userEvent.click(screen.getByRole("button", { name: "Sync" }));
+      expect(actions.sync).toHaveBeenCalledTimes(1);
+    });
+
+    it("disables Sync while it runs", () => {
+      vi.mocked(useAccountSync).mockReturnValue(
+        readyController([lm(1)], [wf("w1")], saved, saved, {
+          busy: { saving: false, syncing: true },
+        }),
+      );
+      render(<MainPage ctx={createMockCtx()} />);
+      expect(screen.getByRole("button", { name: /Syncing/ })).toBeDisabled();
+    });
+
+    it("says when it last synced and what the last sync changed", () => {
+      vi.mocked(useAccountSync).mockReturnValue(
+        readyController([lm(1)], [wf("w1")], saved, saved, {
+          lastSynced: new Date(),
+          lastSyncResult: { imported: 2 },
+        }),
+      );
+      render(<MainPage ctx={createMockCtx()} />);
+      expect(screen.getByText("Synced 2 minutes ago · 2 balances updated")).toBeInTheDocument();
+    });
+
+    it("says when the last sync found nothing to update", () => {
+      vi.mocked(useAccountSync).mockReturnValue(
+        readyController([lm(1)], [wf("w1")], saved, saved, {
+          lastSynced: new Date(),
+          lastSyncResult: { imported: 0 },
+        }),
+      );
+      render(<MainPage ctx={createMockCtx()} />);
+      expect(
+        screen.getByText("Synced 2 minutes ago · all balances up to date"),
+      ).toBeInTheDocument();
+    });
+
+    it("shows only the time for a sync from an earlier session", () => {
+      vi.mocked(useAccountSync).mockReturnValue(
+        readyController([lm(1)], [wf("w1")], saved, saved, { lastSynced: new Date() }),
+      );
+      render(<MainPage ctx={createMockCtx()} />);
+      expect(screen.getByText("Synced 2 minutes ago")).toBeInTheDocument();
+    });
   });
 
-  it("hides Import Balances button when no linked accounts", () => {
-    vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1)], [wf("w1")]));
-    render(<MainPage ctx={createMockCtx()} />);
-    expect(screen.queryByText("Import Balances")).toBeNull();
+  describe("link wizard", () => {
+    it("invites first-time users to step through their accounts", async () => {
+      vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1), lm(2)], [wf("w1")]));
+      render(<MainPage ctx={createMockCtx()} />);
+      expect(screen.getByText("Link your accounts")).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Start" }));
+      expect(screen.getByText("Account 1 of 2")).toBeInTheDocument();
+    });
+
+    it("doesn't show the invitation once accounts are linked", () => {
+      const saved = { 1: { type: "existing" as const, wfAccountId: "w1" } };
+      vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1)], [wf("w1")], saved, saved));
+      render(<MainPage ctx={createMockCtx()} />);
+      expect(screen.queryByText("Link your accounts")).toBeNull();
+    });
+
+    it("can be reopened from the header, replacing the table", async () => {
+      const saved = { 1: { type: "existing" as const, wfAccountId: "w1" } };
+      vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1)], [wf("w1")], saved, saved));
+      render(<MainPage ctx={createMockCtx()} />);
+      await userEvent.click(screen.getByRole("button", { name: "Link accounts" }));
+      expect(screen.getByText("Account 1 of 1")).toBeInTheDocument();
+      expect(screen.queryByPlaceholderText("Search accounts...")).toBeNull();
+    });
+
+    it("discards wizard choices on cancel", async () => {
+      const actions = makeActions();
+      vi.mocked(useAccountSync).mockReturnValue(
+        readyController([lm(1)], [wf("w1")], {}, {}, { actions }),
+      );
+      render(<MainPage ctx={createMockCtx()} />);
+      await userEvent.click(screen.getByRole("button", { name: "Start" }));
+      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(actions.undo).toHaveBeenCalled();
+      expect(screen.getByPlaceholderText("Search accounts...")).toBeInTheDocument();
+    });
+
+    it("applies the wizard's changes and returns to the table", async () => {
+      const actions = makeActions();
+      const draft = { 1: { type: "existing" as const, wfAccountId: "w1" } };
+      vi.mocked(useAccountSync).mockReturnValue(
+        readyController([lm(1)], [wf("w1")], draft, {}, { actions }),
+      );
+      render(<MainPage ctx={createMockCtx()} />);
+      await userEvent.click(screen.getByRole("button", { name: "Link accounts" }));
+      await userEvent.click(screen.getByRole("button", { name: "Review changes" }));
+      await userEvent.click(screen.getByRole("button", { name: "Apply changes" }));
+      expect(actions.confirm).toHaveBeenCalledWith({ importBalances: true });
+      expect(screen.getByPlaceholderText("Search accounts...")).toBeInTheDocument();
+    });
+
+    it("passes choices made in the wizard to the draft", async () => {
+      const actions = makeActions();
+      vi.mocked(useAccountSync).mockReturnValue(
+        readyController([lm(1)], [wf("w1")], {}, {}, { actions }),
+      );
+      render(<MainPage ctx={createMockCtx()} />);
+      await userEvent.click(screen.getByRole("button", { name: "Start" }));
+      await userEvent.click(screen.getByRole("radio", { name: /WF w1/ }));
+      expect(actions.changeDraft).toHaveBeenCalledWith(1, { type: "existing", wfAccountId: "w1" });
+    });
   });
 
   it("opens ConfirmSaveDialog on Save click", async () => {
@@ -164,13 +277,7 @@ describe("MainPage", () => {
         { 1: { type: "create" } },
         {},
         {
-          actions: {
-            refresh: vi.fn(),
-            changeDraft: vi.fn(),
-            undo: vi.fn(),
-            confirm,
-            syncBalances: vi.fn().mockResolvedValue(undefined),
-          },
+          actions: makeActions({ confirm }),
         },
       ),
     );
