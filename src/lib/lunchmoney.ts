@@ -18,6 +18,8 @@ export interface LunchmoneyAccount {
   balance: string;
   institution_name?: string;
   status: string;
+  /** Where the account lives in Lunch Money: added by hand, or synced from a bank. */
+  source?: "manual" | "synced";
 }
 
 // The addon runs in a sandboxed iframe where `fetch` is blocked; all requests go
@@ -42,5 +44,8 @@ export async function fetchAllAccounts(ctx: AddonContext): Promise<LunchmoneyAcc
   ]);
   const manual = manualResult.status === "fulfilled" ? manualResult.value.manual_accounts : [];
   const plaid = plaidResult.status === "fulfilled" ? plaidResult.value.plaid_accounts : [];
-  return [...manual, ...plaid];
+  return [
+    ...manual.map((a) => ({ ...a, source: "manual" as const })),
+    ...plaid.map((a) => ({ ...a, source: "synced" as const })),
+  ];
 }

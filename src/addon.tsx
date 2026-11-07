@@ -1,4 +1,5 @@
 import type { AddonContext } from "@wealthfolio/addon-sdk";
+import "./addon.css";
 import { MainPage, SettingsPage } from "./pages";
 import { MAIN_ROUTE, SETTINGS_ROUTE } from "./lib/routes";
 

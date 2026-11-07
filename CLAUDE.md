@@ -40,6 +40,14 @@ available for UI.
 Radix): use `render` instead of `asChild`, `onClick` on `DropdownMenuItem`,
 array values on `ToggleGroup`.
 
+**Styling**: the sandbox's base stylesheet is the host's Tailwind build, which
+only has utilities Wealthfolio itself uses. `src/addon.css` generates the
+addon's utilities into `dist/addon.css` (no reset, no theme variables; colours
+map to the host's CSS variables). Use theme colours (`text-success`,
+`text-warning`, `text-destructive`, `text-muted-foreground`), not Tailwind's
+palette — `src/__tests__/stylesheet.test.ts` enforces this. A new theme colour
+must be added to the `@theme inline reference` block in `src/addon.css`.
+
 **Folder conventions**:
 
 - `src/components/` — shared UI components

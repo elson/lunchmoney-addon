@@ -8,6 +8,25 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- Show each account's Lunch Money balance, and once linked, whether it matches
+  Wealthfolio (with the Wealthfolio balance and difference when it doesn't)
+- Label accounts as Manual or Synced so look-alike accounts can be told apart
+
+### Changed
+
+- Click anywhere on the target account to change it; a linked account has its
+  own button to open it in Wealthfolio
+- Show the original account name only when it adds information
+- Use the theme's success and warning colours for balance status
+
+### Fixed
+
+- Ship the addon's own stylesheet: in Wealthfolio's sandbox, layout classes the
+  host doesn't use had no styles (overlapping search icon, missing spacing, no
+  selected filter tab)
+
 ## [0.4.1] - 2026-11-07
 
 ### Fixed

@@ -171,6 +171,9 @@ export const DropdownMenuItem = ({
 export const DropdownMenuSeparator = () => <hr data-testid="dropdown-separator" />;
 
 export const Icons = {
+  ExternalLink: ({ className }: { className?: string }) => (
+    <span className={className} data-testid="icon-external-link" />
+  ),
   Search: ({ className }: { className?: string }) => (
     <span className={className} data-testid="icon-search" />
   ),

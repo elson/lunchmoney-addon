@@ -58,6 +58,19 @@ describe("fetchAllAccounts", () => {
     expect(result.map((a) => a.id)).toEqual([1, 2]);
   });
 
+  it("tags each account with where it comes from, so look-alike accounts can be told apart", async () => {
+    const ctx = createMockCtx();
+    mockNetwork(ctx, {
+      "/manual_accounts": { status: 200, data: { manual_accounts: [makeAccount(1)] } },
+      "/plaid_accounts": { status: 200, data: { plaid_accounts: [makeAccount(2)] } },
+    });
+    const result = await fetchAllAccounts(ctx);
+    expect(result.map((a) => [a.id, a.source])).toEqual([
+      [1, "manual"],
+      [2, "synced"],
+    ]);
+  });
+
   it("returns only manual accounts when plaid fails", async () => {
     const ctx = createMockCtx();
     mockNetwork(ctx, {

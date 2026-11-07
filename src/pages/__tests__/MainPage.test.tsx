@@ -217,7 +217,7 @@ describe("MainPage", () => {
     vi.mocked(useAccountSync).mockReturnValue(makeController());
     const ctx = createMockCtx();
     render(<MainPage ctx={ctx} />);
-    await userEvent.click(screen.getByTitle("Settings"));
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
     expect(ctx.api.navigation.navigate).toHaveBeenCalledWith("/addons/lunchmoney-addon/settings");
   });
 
@@ -234,7 +234,7 @@ describe("MainPage", () => {
     vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1)], [wf("w1")], draft, draft));
     const ctx = createMockCtx();
     render(<MainPage ctx={ctx} />);
-    await userEvent.click(screen.getByText("WF w1"));
+    await userEvent.click(screen.getByRole("button", { name: "Open WF w1 in Wealthfolio" }));
     expect(ctx.api.navigation.navigate).toHaveBeenCalledWith("/accounts/w1");
   });
 });

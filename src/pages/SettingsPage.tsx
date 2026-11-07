@@ -64,7 +64,7 @@ export default function SettingsPage({ ctx }: { ctx: AddonContext }) {
             <Button variant="outline" onClick={handleClear}>
               Clear
             </Button>
-            {status === "saved" && <span className="text-sm text-green-600">Saved!</span>}
+            {status === "saved" && <span className="text-success text-sm">Saved!</span>}
             {status === "cleared" && (
               <span className="text-muted-foreground text-sm">Cleared.</span>
             )}

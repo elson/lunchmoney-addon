@@ -53,6 +53,7 @@ export default defineConfig(({ command }) => ({
     lib: {
       entry: "src/addon.tsx",
       fileName: () => "addon.js",
+      cssFileName: "addon",
       formats: ["es"],
     },
     rollupOptions: { external: hostProvidedDependencies },

@@ -104,7 +104,7 @@ describe("AccountLinkTable", () => {
     expect(screen.getByText("Unknown account")).toBeInTheDocument();
   });
 
-  it("calls onNavigate when account name link is clicked", async () => {
+  it("opens the linked Wealthfolio account from its own button", async () => {
     const onNavigate = vi.fn();
     const draft: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
     render(
@@ -114,11 +114,11 @@ describe("AccountLinkTable", () => {
         onNavigate={onNavigate}
       />,
     );
-    await userEvent.click(screen.getByText("My Portfolio"));
+    await userEvent.click(screen.getByRole("button", { name: "Open My Portfolio in Wealthfolio" }));
     expect(onNavigate).toHaveBeenCalledWith("/accounts/w1");
   });
 
-  it("renders balance placeholder when wfBalance is null", () => {
+  it("makes the whole target cell the control for choosing a Wealthfolio account", () => {
     render(
       <AccountLinkTable
         vm={makeVm(baseAccounts, [])}
@@ -126,10 +126,83 @@ describe("AccountLinkTable", () => {
         onNavigate={vi.fn()}
       />,
     );
-    expect(screen.getAllByText("--,--.--").length).toBeGreaterThan(0);
+    const trigger = screen.getByRole("button", { name: "Choose Wealthfolio account for Checking" });
+    expect(trigger).toHaveTextContent("Skip");
   });
 
-  it("renders matching balance in green class", () => {
+  it("labels the status icon so linked and unlinked rows can be told apart", () => {
+    const saved: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
+    render(
+      <AccountLinkTable
+        vm={makeVm(baseAccounts, [wf("w1", "My Portfolio")], saved, saved)}
+        onDraftChange={vi.fn()}
+        onNavigate={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("img", { name: "Linked" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Not linked" })).toBeInTheDocument();
+  });
+
+  it("shows whether a Lunch Money account is manual or synced from a bank", () => {
+    render(
+      <AccountLinkTable
+        vm={makeVm(
+          [
+            { ...lm(1, "Joint Account"), source: "manual" },
+            { ...lm(2, "Joint Account"), source: "synced" },
+          ],
+          [],
+        )}
+        onDraftChange={vi.fn()}
+        onNavigate={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/Manual/)).toBeInTheDocument();
+    expect(screen.getByText(/Synced/)).toBeInTheDocument();
+  });
+
+  it("shows the original name only when the display name doesn't already contain it", () => {
+    render(
+      <AccountLinkTable
+        vm={makeVm(
+          [
+            { ...lm(1, "GBP"), display_name: "bunq GBP" },
+            { ...lm(2, "1st Account"), display_name: "FD Joint Account" },
+          ],
+          [],
+        )}
+        onDraftChange={vi.fn()}
+        onNavigate={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText("(GBP)")).toBeNull();
+    expect(screen.getByText("(1st Account)")).toBeInTheDocument();
+  });
+
+  it("shows the Lunch Money balance in the account's currency, even when not linked", () => {
+    render(
+      <AccountLinkTable
+        vm={makeVm([{ ...lm(1, "Checking"), balance: "1234.5000", currency: "gbp" }], [])}
+        onDraftChange={vi.fn()}
+        onNavigate={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/£1,234\.50/)).toBeInTheDocument();
+    expect(screen.queryByText("--,--.--")).toBeNull();
+  });
+
+  it("falls back to number and code for a currency the browser can't format", () => {
+    render(
+      <AccountLinkTable
+        vm={makeVm([{ ...lm(1, "Checking"), balance: "42", currency: "not-a-code" }], [])}
+        onDraftChange={vi.fn()}
+        onNavigate={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("42.00 NOT-A-CODE")).toBeInTheDocument();
+  });
+
+  it("says when the linked Wealthfolio balance matches", () => {
     const saved: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
     render(
       <AccountLinkTable
@@ -138,11 +211,11 @@ describe("AccountLinkTable", () => {
         onNavigate={vi.fn()}
       />,
     );
-    // lm balance is "100.00", wf balance is 100.00 — should match
+    expect(screen.getByText("Matches Wealthfolio")).toBeInTheDocument();
     expect(screen.queryByTestId("icon-alert-triangle")).toBeNull();
   });
 
-  it("renders alert icon for mismatched balance", () => {
+  it("shows the Wealthfolio balance and the difference when they don't match", () => {
     const saved: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
     render(
       <AccountLinkTable
@@ -152,6 +225,8 @@ describe("AccountLinkTable", () => {
       />,
     );
     expect(screen.getByTestId("icon-alert-triangle")).toBeInTheDocument();
+    expect(screen.getByText(/Wealthfolio \$200\.00/)).toBeInTheDocument();
+    expect(screen.getByText(/\+\$100\.00/)).toBeInTheDocument();
   });
 
   it("calls onDraftChange with ignore when Skip dropdown item is clicked", async () => {
