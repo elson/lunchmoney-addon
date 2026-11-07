@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-07
+
 ### Added
 
 - Guided linking: step through each Lunch Money account, see its balance next to
