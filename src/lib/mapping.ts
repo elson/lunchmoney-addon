@@ -1,8 +1,8 @@
 import type { AddonContext } from "@wealthfolio/addon-sdk";
 import type { AccountMapping } from "../types";
 
-const MAPPING_STORAGE_KEY = "lunchmoney-addon:account-mapping";
-const LAST_SYNCED_STORAGE_KEY = "lunchmoney-addon:last-synced";
+export const MAPPING_STORAGE_KEY = "lunchmoney-addon:account-mapping";
+export const LAST_SYNCED_STORAGE_KEY = "lunchmoney-addon:last-synced";
 
 // Legacy key — used only for one-time migration from secrets to addon storage
 const MAPPING_SECRET_KEY_LEGACY = "account-mapping";

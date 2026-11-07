@@ -12,6 +12,7 @@
   "license": "MIT",
   "scripts": {
     "build": "vite build",
+    "build:companion": "vite build --config vite.companion.config.ts",
     "dev": "vite build --watch",
     "dev:server": "wealthfolio dev",
     "clean": "rm -rf dist",
@@ -49,6 +50,7 @@
     "@vitejs/plugin-react": "^5.0.2",
     "@vitest/coverage-v8": "^4.1.0",
     "@wealthfolio/addon-dev-tools": "^3.12.0",
+    "croner": "^9.1.0",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react": "^7.37.5",

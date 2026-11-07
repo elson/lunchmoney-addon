@@ -2,6 +2,8 @@ import type { AddonContext } from "@wealthfolio/addon-sdk";
 import "./addon.css";
 import { MainPage, SettingsPage } from "./pages";
 import { MAIN_ROUTE, SETTINGS_ROUTE } from "./lib/routes";
+import { autoSyncOnStartup } from "./lib/autoSync";
+import { recordAddonVersion } from "./lib/companionVersion";
 
 // Routes and the sidebar link are declared in manifest.json `contributes`; here
 // we only attach the components. The host owns the React root and mounts these
@@ -12,4 +14,10 @@ export default function enable(ctx: AddonContext) {
 
   ctx.router.add({ ...MAIN_ROUTE, title: "Lunch Money", component: Main });
   ctx.router.add({ ...SETTINGS_ROUTE, title: "Lunch Money Settings", component: Settings });
+
+  // Keep balances current without visiting the add-on: sync whenever
+  // Wealthfolio opens, unless it synced within the last hour.
+  void autoSyncOnStartup(ctx);
+  // Lets the Docker sync companion check it runs the same release.
+  void recordAddonVersion(ctx);
 }

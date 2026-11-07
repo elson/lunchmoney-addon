@@ -18,6 +18,8 @@ export default tseslint.config(
       "*.cjs",
       "src/test/**",
       "src/**/__tests__/**",
+      "companion/**/__tests__/**",
+      "companion/dist/**",
     ],
   },
   js.configs.recommended,
@@ -49,6 +51,11 @@ export default tseslint.config(
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "react/react-in-jsx-scope": "off",
     },
+  },
+  {
+    // The companion runs in Node, not the browser sandbox.
+    files: ["companion/src/**/*.ts"],
+    languageOptions: { globals: { ...globals.node } },
   },
   prettierConfig,
 );

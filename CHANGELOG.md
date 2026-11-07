@@ -8,6 +8,17 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- The add-on syncs linked balances by itself whenever Wealthfolio opens, unless
+  it synced in the last hour.
+- A Docker companion (`ghcr.io/elson/lunchmoney-sync`) syncs every day without a
+  browser, using the add-on's own token and account links, with a `/health`
+  endpoint that turns unhealthy when a sync fails.
+- The add-on and the companion check they run the same release: the add-on shows
+  a warning naming the one to update, and the companion's health check fails
+  until they match.
+
 ## [0.7.1] - 2026-11-07
 
 ### Fixed

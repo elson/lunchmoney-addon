@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AddonContext } from "@wealthfolio/addon-sdk";
-import { checkConnection, fetchAllAccounts } from "../lunchmoney";
+import { checkConnection, fetchAccountsWith, fetchAllAccounts } from "../lunchmoney";
 import { createMockCtx } from "../../test/mockCtx";
 
 const makeAccount = (id: number) => ({
@@ -130,6 +130,41 @@ describe("fetchAllAccounts", () => {
       body: "<html>",
     });
     expect(await fetchAllAccounts(ctx)).toEqual([]);
+  });
+});
+
+describe("fetchAccountsWith", () => {
+  const getJsonFrom =
+    (responses: Record<string, unknown>) =>
+    <T>(path: string): Promise<T> =>
+      path in responses
+        ? Promise.resolve(responses[path] as T)
+        : Promise.reject(new Error(`no ${path}`));
+
+  it("reads both account lists through the given GET function, without credit cards", async () => {
+    const result = await fetchAccountsWith(
+      getJsonFrom({
+        "/manual_accounts": { manual_accounts: [makeAccount(1)] },
+        "/plaid_accounts": {
+          plaid_accounts: [{ ...makeAccount(2), type: "credit" }, makeAccount(3)],
+        },
+      }),
+    );
+    expect(result.map((a) => [a.id, a.source])).toEqual([
+      [1, "manual"],
+      [3, "synced"],
+    ]);
+  });
+
+  it("returns what it could read when one list fails", async () => {
+    const result = await fetchAccountsWith(
+      getJsonFrom({ "/plaid_accounts": { plaid_accounts: [makeAccount(2)] } }),
+    );
+    expect(result.map((a) => a.id)).toEqual([2]);
+  });
+
+  it("throws the first failure when neither list can be read", async () => {
+    await expect(fetchAccountsWith(getJsonFrom({}))).rejects.toThrow("no /manual_accounts");
   });
 });
 

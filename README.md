@@ -57,9 +57,62 @@ Requires **Wealthfolio 3.12 or newer**.
 
 ### Syncing balances
 
-Once accounts are linked, click **Import Balances** on the main page. The addon
-fetches the current balance for every linked Lunch Money account and saves it as
-a snapshot in Wealthfolio. The "Last updated" timestamp updates automatically.
+Once accounts are linked, click **Sync** on the main page. The add-on reads the
+current balance of every linked Lunch Money account and saves a snapshot in
+Wealthfolio for each one that differs.
+
+The add-on also syncs by itself whenever Wealthfolio opens, unless it synced in
+the last hour, so balances stay current without visiting the add-on.
+
+### Daily sync without a browser (Docker companion)
+
+Add-ons only run while Wealthfolio is open in a browser. To sync every day
+without that, run the companion container next to a self-hosted Wealthfolio
+server. It makes the same calls as the **Sync** button, through Wealthfolio's
+REST API, and reads its settings from the add-on: the Lunch Money token and the
+account links you set up in the add-on. There is nothing to configure in the
+container except how to reach Wealthfolio.
+
+```yaml
+services:
+  lunchmoney-sync:
+    image: ghcr.io/elson/lunchmoney-sync:latest
+    restart: unless-stopped
+    environment:
+      - WEALTHFOLIO_URL=http://wealthfolio:8088 # Wealthfolio's service name and port
+      - WEALTHFOLIO_PASSWORD_FILE=/run/secrets/wealthfolio_password
+      - TZ=Europe/London # the schedule runs in this time zone
+    secrets:
+      - wealthfolio_password
+
+secrets:
+  wealthfolio_password:
+    file: ./wealthfolio_password.txt # Wealthfolio's login password, on one line
+```
+
+| Variable                    | Default     | Meaning                                                               |
+| --------------------------- | ----------- | --------------------------------------------------------------------- |
+| `WEALTHFOLIO_URL`           | required    | Wealthfolio server address                                            |
+| `WEALTHFOLIO_PASSWORD_FILE` | —           | File holding Wealthfolio's login password (or `WEALTHFOLIO_PASSWORD`) |
+| `SYNC_SCHEDULE`             | `0 6 * * *` | Cron line for when to sync, in `TZ`                                   |
+| `SYNC_ON_START`             | `true`      | Also sync when the container starts                                   |
+| `RUN_ONCE`                  | `false`     | Sync once and exit (0 on success), for an external scheduler          |
+| `STATUS_PORT`               | `8080`      | Port for `GET /health`; `off` for none                                |
+
+`GET /health` returns 503, with the reason, after a failed sync (until a sync
+succeeds again) or while the add-on and the companion are on different versions;
+otherwise 200. The image's `HEALTHCHECK` uses it, so either problem shows the
+container as unhealthy. The response holds no balances, account names or
+credentials.
+
+The add-on and the companion record their versions in the add-on's storage and
+compare them: the companion logs a warning, and the add-on's main page shows
+which one to update. Upgrade both together: install the add-on release and pull
+the image of the same version.
+
+The companion only reads from Lunch Money. It signs in to Wealthfolio with the
+password once per run (Wealthfolio allows five sign-ins a minute) and needs a
+Wealthfolio with password authentication and a single profile without a lock.
 
 ### Relinking or unlinking
 
@@ -109,7 +162,14 @@ src/
   pages/             # MainPage, SettingsPage
   test/              # setup, mockCtx, component stubs
   types/             # TypeScript interfaces
+companion/           # Docker companion: daily sync over Wealthfolio's REST API
+  src/main.ts        # entry point — config, schedule, health check
+  Dockerfile         # built from the repo root; published to GHCR on release
 ```
+
+The balance sync itself (`src/lib/balanceSync.ts`) is shared: the add-on runs it
+through `ctx.api`, the companion through REST. `pnpm build:companion` builds the
+companion into one script, `companion/dist/main.js`.
 
 ## License
 

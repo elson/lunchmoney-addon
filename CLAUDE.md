@@ -72,10 +72,27 @@ must be added to the `@theme inline reference` block in `src/addon.css`.
   create/link/relink/unlink/unchanged buckets. Pure function, no React.
 - `filterAccounts.ts` — Filters LM accounts by search query and tab. Pure
   function, no React.
+- `balanceSync.ts` — the balance sync shared by the add-on and the companion:
+  `BalanceSyncHost` (what a sync needs), `importChangedBalances`,
+  `runBalanceSync`. No `ctx`; keep it free of add-on-only imports.
+- `addonHost.ts` — `BalanceSyncHost` over `ctx.api`.
+- `autoSync.ts` — sync when Wealthfolio opens (one-hour cooldown), called from
+  `enable()`.
 - `balances.ts` — `balancesMatch` (half-cent tolerance), shared by the view
   model and sync engine.
 - `format.ts` — `formatMoney` for ISO currency amounts.
 - `routes.ts` — route ids/paths; must match `manifest.json` `contributes`.
+
+## Companion (`companion/`)
+
+A Node container that runs `runBalanceSync` on a cron schedule over
+Wealthfolio's REST API (`/api/v1`: password login → `wf_session` token as
+Bearer; reads the add-on's secret `/addons/<id>/secrets?key=` and storage
+`/addons/storage/<id>/<key>`). It imports shared code from `src/lib/`, so
+anything it imports must not need `ctx` or the browser. `pnpm build:companion`
+bundles it (croner included) into `companion/dist/main.js`; the release workflow
+publishes the image to GHCR. Its tests are in `companion/src/__tests__/` (Node
+environment) and count towards coverage; `main.ts` is excluded.
 
 ## Testing
 

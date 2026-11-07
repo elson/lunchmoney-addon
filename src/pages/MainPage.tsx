@@ -18,7 +18,12 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@wealthfolio/ui";
-import { AccountLinkTable, ConfirmSaveDialog, LinkWizard } from "../components";
+import {
+  AccountLinkTable,
+  CompanionVersionAlert,
+  ConfirmSaveDialog,
+  LinkWizard,
+} from "../components";
 import { useAccountSync } from "../hooks";
 import { SETTINGS_ROUTE } from "../lib/routes";
 import type { FilterTab } from "../lib/accountViewModel";
@@ -102,6 +107,7 @@ export function MainPage({ ctx }: { ctx: AddonContext }) {
       />
       <Separator />
       <PageContent withPadding>
+        <CompanionVersionAlert ctx={ctx} />
         {error && <p className="text-destructive mb-4 text-sm">{error}</p>}
 
         {status.phase === "checking" && <p className="text-muted-foreground text-sm">Loading…</p>}

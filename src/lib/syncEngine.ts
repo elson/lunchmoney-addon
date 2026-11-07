@@ -1,8 +1,9 @@
 import type { AddonContext, Account } from "@wealthfolio/addon-sdk";
 import type { LunchmoneyAccount } from "./lunchmoney";
 import { fetchAllAccounts } from "./lunchmoney";
-import { loadMapping, saveMapping, saveLastSynced, cleanMapping } from "./mapping";
-import { balancesMatch } from "./balances";
+import { loadMapping, saveMapping, cleanMapping } from "./mapping";
+import { importChangedBalances } from "./balanceSync";
+import { createAddonHost, loadCashBalances as loadValuations } from "./addonHost";
 import type { AccountMapping } from "../types";
 
 export interface LoadResult {
@@ -46,38 +47,6 @@ async function createWfAccountFromLm(ctx: AddonContext, lm: LunchmoneyAccount): 
     trackingMode: "HOLDINGS",
     group: lm.institution_name || undefined,
   });
-}
-
-async function saveSnapshot(
-  ctx: AddonContext,
-  wfAccountId: string,
-  currency: string,
-  balance: string,
-  snapshotDate: string,
-): Promise<void> {
-  await ctx.api.snapshots.save(
-    wfAccountId,
-    [],
-    { [currency.toUpperCase()]: balance },
-    snapshotDate,
-  );
-}
-
-async function loadValuations(
-  ctx: AddonContext,
-  wfIds: readonly string[],
-): Promise<Record<string, number>> {
-  if (wfIds.length === 0) return {};
-  try {
-    const valuations = await ctx.api.portfolio.getLatestValuations([...wfIds]);
-    const balances: Record<string, number> = {};
-    for (const v of valuations) {
-      balances[v.accountId] = v.cashBalance;
-    }
-    return balances;
-  } catch {
-    return {};
-  }
 }
 
 function linkedWfIds(mapping: AccountMapping): string[] {
@@ -142,35 +111,17 @@ export function createSyncEngine(ctx: AddonContext): SyncEngine {
 
     async syncBalances(savedMapping, lmAccounts, wfCashBalances = {}) {
       const today = new Date().toISOString().slice(0, 10);
-      const errors: string[] = [];
-      let imported = 0;
+      const { imported, errors } = await importChangedBalances(
+        createAddonHost(ctx),
+        savedMapping,
+        lmAccounts,
+        wfCashBalances,
+        today,
+      );
+      if (errors.length > 0) return { ok: false, errors };
 
-      for (const [idStr, entry] of Object.entries(savedMapping)) {
-        if (entry.type !== "existing") continue;
-        const lmId = Number(idStr);
-        const lm = lmAccounts.find((a) => a.id === lmId);
-        if (!lm) continue;
-        const current = wfCashBalances[entry.wfAccountId];
-        if (current !== undefined && balancesMatch(current, parseFloat(lm.balance))) continue;
-
-        try {
-          await saveSnapshot(ctx, entry.wfAccountId, lm.currency, lm.balance, today);
-          imported++;
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          ctx.api.logger.error(`Balance sync failed for LM account ${lmId}: ${msg}`);
-          errors.push(msg);
-        }
-      }
-
-      if (errors.length > 0) {
-        return { ok: false, errors };
-      }
-
-      await saveLastSynced(ctx);
       const lastSynced = new Date();
       if (imported === 0) return { ok: true, lastSynced, wfCashBalances, imported };
-      await ctx.api.portfolio.update();
       const reloaded = await loadValuations(ctx, [
         ...new Set([...Object.keys(wfCashBalances), ...linkedWfIds(savedMapping)]),
       ]);

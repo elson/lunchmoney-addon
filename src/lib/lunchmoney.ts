@@ -1,7 +1,7 @@
 import type { AddonContext } from "@wealthfolio/addon-sdk";
 
-const BASE_URL = "https://api.lunchmoney.dev/v2";
-const API_KEY_SECRET = "lunchmoney-api-key";
+export const BASE_URL = "https://api.lunchmoney.dev/v2";
+export const API_KEY_SECRET = "lunchmoney-api-key";
 
 export const getApiKey = (ctx: AddonContext) => ctx.api.secrets.get(API_KEY_SECRET);
 export const setApiKey = (ctx: AddonContext, key: string) =>
@@ -43,17 +43,32 @@ async function fetchJson<T>(ctx: AddonContext, path: string): Promise<T> {
   return JSON.parse(res.body) as T;
 }
 
-export async function fetchAllAccounts(ctx: AddonContext): Promise<LunchmoneyAccount[]> {
+/** Reads a Lunch Money path and returns its parsed JSON (GET only). */
+export type LunchMoneyGet = <T>(path: string) => Promise<T>;
+
+/**
+ * Manual and bank-synced accounts, credit cards left out. Shared by the add-on
+ * and the companion, which each bring their own GET. Throws only when neither
+ * list can be read.
+ */
+export async function fetchAccountsWith(getJson: LunchMoneyGet): Promise<LunchmoneyAccount[]> {
   const [manualResult, plaidResult] = await Promise.allSettled([
-    fetchJson<{ manual_accounts: LunchmoneyAccount[] }>(ctx, "/manual_accounts"),
-    fetchJson<{ plaid_accounts: LunchmoneyAccount[] }>(ctx, "/plaid_accounts"),
+    getJson<{ manual_accounts: LunchmoneyAccount[] }>("/manual_accounts"),
+    getJson<{ plaid_accounts: LunchmoneyAccount[] }>("/plaid_accounts"),
   ]);
+  if (manualResult.status === "rejected" && plaidResult.status === "rejected") {
+    throw manualResult.reason;
+  }
   const manual = manualResult.status === "fulfilled" ? manualResult.value.manual_accounts : [];
   const plaid = plaidResult.status === "fulfilled" ? plaidResult.value.plaid_accounts : [];
   return [
     ...manual.map((a) => ({ ...a, source: "manual" as const })),
     ...plaid.map((a) => ({ ...a, source: "synced" as const })),
   ].filter((a) => !isCreditCard(a));
+}
+
+export async function fetchAllAccounts(ctx: AddonContext): Promise<LunchmoneyAccount[]> {
+  return fetchAccountsWith((path) => fetchJson(ctx, path)).catch(() => []);
 }
 
 /**
