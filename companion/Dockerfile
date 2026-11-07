@@ -16,7 +16,9 @@ COPY --from=build /app/companion/dist/main.js ./main.js
 ENV NODE_ENV=production
 USER node
 EXPOSE 8080
-# Unhealthy after a failed sync, until the next one succeeds. BusyBox wget ships with Alpine.
+# Unhealthy after a failed sync (until one succeeds) or on an add-on version mismatch.
+# BusyBox wget ships with Alpine. 127.0.0.1, not localhost: localhost can resolve to ::1
+# first, which fails where IPv6 is off.
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=30s \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:8080/health || exit 1
 CMD ["node", "main.js"]

@@ -80,24 +80,18 @@ services:
     restart: unless-stopped
     environment:
       - WEALTHFOLIO_URL=http://wealthfolio:8088 # Wealthfolio's service name and port
-      - WEALTHFOLIO_PASSWORD_FILE=/run/secrets/wealthfolio_password
+      - WEALTHFOLIO_PASSWORD=${WEALTHFOLIO_PASSWORD:?error} # Wealthfolio's login password
       - TZ=Europe/London # the schedule runs in this time zone
-    secrets:
-      - wealthfolio_password
-
-secrets:
-  wealthfolio_password:
-    file: ./wealthfolio_password.txt # Wealthfolio's login password, on one line
 ```
 
-| Variable                    | Default     | Meaning                                                               |
-| --------------------------- | ----------- | --------------------------------------------------------------------- |
-| `WEALTHFOLIO_URL`           | required    | Wealthfolio server address                                            |
-| `WEALTHFOLIO_PASSWORD_FILE` | —           | File holding Wealthfolio's login password (or `WEALTHFOLIO_PASSWORD`) |
-| `SYNC_SCHEDULE`             | `0 6 * * *` | Cron line for when to sync, in `TZ`                                   |
-| `SYNC_ON_START`             | `true`      | Also sync when the container starts                                   |
-| `RUN_ONCE`                  | `false`     | Sync once and exit (0 on success), for an external scheduler          |
-| `STATUS_PORT`               | `8080`      | Port for `GET /health`; `off` for none                                |
+| Variable               | Default     | Meaning                                                      |
+| ---------------------- | ----------- | ------------------------------------------------------------ |
+| `WEALTHFOLIO_URL`      | required    | Wealthfolio server address                                   |
+| `WEALTHFOLIO_PASSWORD` | required    | Wealthfolio's login password                                 |
+| `SYNC_SCHEDULE`        | `0 6 * * *` | Cron line for when to sync, in `TZ`                          |
+| `SYNC_ON_START`        | `true`      | Also sync when the container starts                          |
+| `RUN_ONCE`             | `false`     | Sync once and exit (0 on success), for an external scheduler |
+| `STATUS_PORT`          | `8080`      | Port for `GET /health`; `off` for none                       |
 
 `GET /health` returns 503, with the reason, after a failed sync (until a sync
 succeeds again) or while the add-on and the companion are on different versions;

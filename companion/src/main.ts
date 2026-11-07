@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { Cron } from "croner";
 import { ConfigError, readConfig } from "./config";
 import { syncOnce } from "./companionSync";
@@ -11,7 +10,7 @@ const log = (message: string) => console.log(`${new Date().toISOString()} ${mess
 
 async function main(): Promise<number> {
   log(`Lunch Money sync companion v${VERSION}`);
-  const config = readConfig(process.env, (path) => readFileSync(path, "utf8"));
+  const config = readConfig(process.env);
   const status = createSyncStatus(VERSION);
 
   const run = createRunner(

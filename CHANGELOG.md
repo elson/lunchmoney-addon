@@ -8,6 +8,14 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- The companion takes Wealthfolio's password only from `WEALTHFOLIO_PASSWORD`.
+  `WEALTHFOLIO_PASSWORD_FILE` is no longer read; a container that still sets it
+  stops with an error saying to use `WEALTHFOLIO_PASSWORD`.
+- The companion image's health check probes `127.0.0.1` instead of `localhost`,
+  so it also works where IPv6 is off.
+
 ## [0.8.0] - 2026-11-07
 
 ### Added

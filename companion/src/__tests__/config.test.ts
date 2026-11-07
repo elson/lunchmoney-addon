@@ -1,19 +1,13 @@
 // @vitest-environment node
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { ConfigError, DEFAULT_SCHEDULE, readConfig } from "../config";
 
-const noFile = vi.fn(() => {
-  throw new Error("no file");
-});
-
 describe("readConfig", () => {
-  it("reads the server URL, a password file and the defaults", () => {
-    const readFile = vi.fn(() => "s3cret\n");
-    const config = readConfig(
-      { WEALTHFOLIO_URL: "http://wealthfolio:8088", WEALTHFOLIO_PASSWORD_FILE: "/run/secrets/pw" },
-      readFile,
-    );
-    expect(readFile).toHaveBeenCalledWith("/run/secrets/pw");
+  it("reads the server URL, the password and the defaults", () => {
+    const config = readConfig({
+      WEALTHFOLIO_URL: "http://wealthfolio:8088",
+      WEALTHFOLIO_PASSWORD: "s3cret",
+    });
     expect(config).toEqual({
       wealthfolioUrl: "http://wealthfolio:8088",
       password: "s3cret",
@@ -24,18 +18,15 @@ describe("readConfig", () => {
     });
   });
 
-  it("accepts the password from the environment, a custom schedule and one-shot mode", () => {
-    const config = readConfig(
-      {
-        WEALTHFOLIO_URL: "http://wf",
-        WEALTHFOLIO_PASSWORD: "pw",
-        SYNC_SCHEDULE: "30 5 * * *",
-        RUN_ONCE: "true",
-        SYNC_ON_START: "false",
-        STATUS_PORT: "9100",
-      },
-      noFile,
-    );
+  it("accepts a custom schedule, one-shot mode and status port", () => {
+    const config = readConfig({
+      WEALTHFOLIO_URL: "http://wf",
+      WEALTHFOLIO_PASSWORD: "pw",
+      SYNC_SCHEDULE: "30 5 * * *",
+      RUN_ONCE: "true",
+      SYNC_ON_START: "false",
+      STATUS_PORT: "9100",
+    });
     expect(config).toMatchObject({
       password: "pw",
       schedule: "30 5 * * *",
@@ -46,43 +37,37 @@ describe("readConfig", () => {
   });
 
   it("turns the status server off with STATUS_PORT=off", () => {
-    const config = readConfig(
-      { WEALTHFOLIO_URL: "http://wf", WEALTHFOLIO_PASSWORD: "pw", STATUS_PORT: "off" },
-      noFile,
-    );
+    const config = readConfig({
+      WEALTHFOLIO_URL: "http://wf",
+      WEALTHFOLIO_PASSWORD: "pw",
+      STATUS_PORT: "off",
+    });
     expect(config.statusPort).toBeNull();
   });
 
   it("rejects a STATUS_PORT that isn't a port", () => {
     expect(() =>
-      readConfig(
-        { WEALTHFOLIO_URL: "http://wf", WEALTHFOLIO_PASSWORD: "pw", STATUS_PORT: "abc" },
-        noFile,
-      ),
+      readConfig({ WEALTHFOLIO_URL: "http://wf", WEALTHFOLIO_PASSWORD: "pw", STATUS_PORT: "abc" }),
     ).toThrow('STATUS_PORT must be a port number or "off", not "abc"');
   });
 
   it("requires the server URL", () => {
-    expect(() => readConfig({ WEALTHFOLIO_PASSWORD: "pw" }, noFile)).toThrow(
+    expect(() => readConfig({ WEALTHFOLIO_PASSWORD: "pw" })).toThrow(
       new ConfigError("Set WEALTHFOLIO_URL to Wealthfolio's address, e.g. http://wealthfolio:8088"),
     );
   });
 
   it("requires a password", () => {
-    expect(() => readConfig({ WEALTHFOLIO_URL: "http://wf" }, noFile)).toThrow(
-      "Set WEALTHFOLIO_PASSWORD_FILE (or WEALTHFOLIO_PASSWORD) to Wealthfolio's login password",
+    expect(() => readConfig({ WEALTHFOLIO_URL: "http://wf" })).toThrow(
+      "Set WEALTHFOLIO_PASSWORD to Wealthfolio's login password",
     );
   });
 
-  it("names a password file it can't read", () => {
+  it("tells a 0.8.0 setup that the password file is no longer read", () => {
     expect(() =>
-      readConfig({ WEALTHFOLIO_URL: "http://wf", WEALTHFOLIO_PASSWORD_FILE: "/x" }, noFile),
-    ).toThrow("Can't read WEALTHFOLIO_PASSWORD_FILE /x");
-  });
-
-  it("rejects an empty password file", () => {
-    expect(() =>
-      readConfig({ WEALTHFOLIO_URL: "http://wf", WEALTHFOLIO_PASSWORD_FILE: "/x" }, () => "  \n"),
-    ).toThrow("WEALTHFOLIO_PASSWORD_FILE /x is empty");
+      readConfig({ WEALTHFOLIO_URL: "http://wf", WEALTHFOLIO_PASSWORD_FILE: "/run/secrets/pw" }),
+    ).toThrow(
+      "WEALTHFOLIO_PASSWORD_FILE is no longer supported: set WEALTHFOLIO_PASSWORD to Wealthfolio's login password instead",
+    );
   });
 });

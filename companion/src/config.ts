@@ -25,26 +25,17 @@ export class ConfigError extends Error {
 
 type Env = Record<string, string | undefined>;
 
-function readPassword(env: Env, readFile: (path: string) => string): string {
-  const file = env.WEALTHFOLIO_PASSWORD_FILE;
-  if (file) {
-    let raw: string;
-    try {
-      raw = readFile(file);
-    } catch {
-      throw new ConfigError(`Can't read WEALTHFOLIO_PASSWORD_FILE ${file}`);
-    }
-    const password = raw.replace(/\r?\n$/, "");
-    if (!password.trim()) throw new ConfigError(`WEALTHFOLIO_PASSWORD_FILE ${file} is empty`);
-    return password;
+function readPassword(env: Env): string {
+  if (env.WEALTHFOLIO_PASSWORD_FILE) {
+    throw new ConfigError(
+      "WEALTHFOLIO_PASSWORD_FILE is no longer supported: set WEALTHFOLIO_PASSWORD to Wealthfolio's login password instead",
+    );
   }
   if (env.WEALTHFOLIO_PASSWORD) return env.WEALTHFOLIO_PASSWORD;
-  throw new ConfigError(
-    "Set WEALTHFOLIO_PASSWORD_FILE (or WEALTHFOLIO_PASSWORD) to Wealthfolio's login password",
-  );
+  throw new ConfigError("Set WEALTHFOLIO_PASSWORD to Wealthfolio's login password");
 }
 
-export function readConfig(env: Env, readFile: (path: string) => string): CompanionConfig {
+export function readConfig(env: Env): CompanionConfig {
   const wealthfolioUrl = env.WEALTHFOLIO_URL;
   if (!wealthfolioUrl) {
     throw new ConfigError(
@@ -53,7 +44,7 @@ export function readConfig(env: Env, readFile: (path: string) => string): Compan
   }
   return {
     wealthfolioUrl,
-    password: readPassword(env, readFile),
+    password: readPassword(env),
     schedule: env.SYNC_SCHEDULE || DEFAULT_SCHEDULE,
     runOnce: env.RUN_ONCE === "true",
     syncOnStart: env.SYNC_ON_START !== "false",
