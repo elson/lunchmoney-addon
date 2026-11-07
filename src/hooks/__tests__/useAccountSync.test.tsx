@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useAccountSync, deriveStatus } from "../useAccountSync";
 import { createMockCtx } from "../../test/mockCtx";
@@ -23,6 +23,7 @@ function makeMockEngine(overrides: Partial<SyncEngine> = {}): SyncEngine {
     syncBalances: vi
       .fn()
       .mockResolvedValue({ ok: true, lastSynced: new Date(), wfCashBalances: {} }),
+    refreshWealthfolio: vi.fn().mockResolvedValue({ wfAccounts: [], wfCashBalances: {} }),
     ...overrides,
   };
 }
@@ -481,5 +482,81 @@ describe("useAccountSync lastSynced", () => {
     const { result } = renderHook(() => useAccountSync(ctx, false));
 
     await waitFor(() => expect(result.current.lastSynced?.getTime()).toBe(1_700_000_000_000));
+  });
+});
+
+describe("useAccountSync live Wealthfolio balances", () => {
+  const wfW1 = {
+    id: "w1",
+    name: "WF 1",
+    accountType: "CASH",
+    currency: "USD",
+    isDefault: false,
+    isActive: true,
+    trackingMode: "HOLDINGS",
+  };
+  const saved = { 1: { type: "existing", wfAccountId: "w1" } };
+
+  async function renderReady(engine: SyncEngine) {
+    const ctx = createMockCtx();
+    vi.mocked(ctx.api.secrets.get).mockResolvedValue("test-key");
+    vi.mocked(createSyncEngine).mockReturnValue(engine);
+    const hook = renderHook(() => useAccountSync(ctx, false));
+    await waitFor(() => expect(hook.result.current.status.phase).toBe("ready"));
+    return hook;
+  }
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("re-reads Wealthfolio balances every few seconds while open", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const engine = makeMockEngine({
+      loadAll: vi.fn().mockResolvedValue({
+        ...loaded([lmFixture(1)], saved, { w1: 50 }),
+        wfAccounts: [wfW1],
+      }),
+      refreshWealthfolio: vi.fn().mockResolvedValue({
+        wfAccounts: [wfW1],
+        wfCashBalances: { w1: 100 },
+      }),
+    });
+    const { result } = await renderReady(engine);
+    const balance = () =>
+      result.current.status.phase === "ready" ? result.current.status.vm.rows[0].wfBalance : null;
+    expect(balance()).toBe(50);
+
+    await act(() => vi.advanceTimersByTimeAsync(5_000));
+
+    expect(engine.refreshWealthfolio).toHaveBeenCalledWith(saved);
+    expect(balance()).toBe(100);
+  });
+
+  it("stops when the page closes", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const engine = makeMockEngine({
+      loadAll: vi.fn().mockResolvedValue(loaded([lmFixture(1)])),
+    });
+    const { unmount } = await renderReady(engine);
+    unmount();
+
+    await vi.advanceTimersByTimeAsync(20_000);
+
+    expect(engine.refreshWealthfolio).not.toHaveBeenCalled();
+  });
+
+  it("keeps the last known balances if a refresh fails", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const engine = makeMockEngine({
+      loadAll: vi.fn().mockResolvedValue(loaded([lmFixture(1)], saved, { w1: 50 })),
+      refreshWealthfolio: vi.fn().mockRejectedValue(new Error("offline")),
+    });
+    const { result } = await renderReady(engine);
+
+    await act(() => vi.advanceTimersByTimeAsync(5_000));
+
+    expect(engine.refreshWealthfolio).toHaveBeenCalled();
+    expect(result.current.error).toBeNull();
   });
 });

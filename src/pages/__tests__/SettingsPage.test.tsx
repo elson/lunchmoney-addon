@@ -38,6 +38,13 @@ describe("SettingsPage", () => {
     expect(screen.getByRole("heading", { name: "Lunch Money Settings" })).toBeInTheDocument();
   });
 
+  it("centres the connection card on the page", () => {
+    setup();
+    const card = screen.getByTestId("card");
+    expect(card.parentElement).toHaveClass("items-center", "justify-center");
+    expect(card).toHaveClass("w-full", "max-w-2xl");
+  });
+
   it("explains where to get a token and that it stays private", () => {
     setup();
     expect(screen.getByText(/Settings → Developers/)).toBeInTheDocument();

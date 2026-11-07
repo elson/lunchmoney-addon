@@ -23,6 +23,10 @@ export type SyncBalancesResult =
 
 export interface SyncEngine {
   loadAll(): Promise<LoadResult>;
+  /** Re-reads Wealthfolio accounts and balances only — no Lunch Money calls. */
+  refreshWealthfolio(
+    savedMapping: AccountMapping,
+  ): Promise<Pick<LoadResult, "wfAccounts" | "wfCashBalances">>;
   confirm(draft: AccountMapping, lmAccounts: LunchmoneyAccount[]): Promise<ConfirmResult>;
   /** Imports Lunch Money balances for linked accounts whose Wealthfolio balance differs. */
   syncBalances(
@@ -110,6 +114,12 @@ export function createSyncEngine(ctx: AddonContext): SyncEngine {
 
       const wfCashBalances = await loadValuations(ctx, balanceCandidates(cleaned, wfData));
       return { lmAccounts: lmData, wfAccounts: wfData, savedMapping: cleaned, wfCashBalances };
+    },
+
+    async refreshWealthfolio(savedMapping) {
+      const wfAccounts = await ctx.api.accounts.getAll();
+      const wfCashBalances = await loadValuations(ctx, balanceCandidates(savedMapping, wfAccounts));
+      return { wfAccounts, wfCashBalances };
     },
 
     async confirm(draft, lmAccounts) {

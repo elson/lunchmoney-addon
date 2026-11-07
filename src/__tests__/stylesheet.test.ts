@@ -35,12 +35,15 @@ describe("addon stylesheet", () => {
     expect(readdirSync(outDir)).toContain("addon.css");
   });
 
-  it.each([".pl-9", ".left-3", ".ml-1\\.5", ".w-\\[160px\\]", ".text-right"])(
-    "includes the %s utility the host stylesheet lacks",
-    (selector) => {
-      expect(css).toContain(selector);
-    },
-  );
+  it.each([
+    ".pl-9",
+    ".left-3",
+    ".ml-1\\.5",
+    ".grid-cols-\\[1\\.25rem_minmax\\(0\\,1fr\\)_7rem_1rem_minmax\\(0\\,1fr\\)_9rem\\]",
+    ".text-right",
+  ])("includes the %s utility the host stylesheet lacks", (selector) => {
+    expect(css).toContain(selector);
+  });
 
   it("styles the pressed filter tab from the host's theme colour", () => {
     expect(css).toMatch(/aria-pressed\\:bg-background\[aria-pressed=["']?true["']?\]/);

@@ -1,6 +1,7 @@
 import React from "react";
 import type { Account } from "@wealthfolio/addon-sdk";
 import {
+  Badge,
   Icons,
   Button,
   DropdownMenu,
@@ -151,27 +152,78 @@ function WfTarget({ row, wfAccounts, claimedWfIds, onDraftChange, onNavigate }: 
   );
 }
 
-// ─── Balance column ──────────────────────────────────────────────────────────
+// ─── Balances ────────────────────────────────────────────────────────────────
 
-function BalanceColumn({ row }: { row: AccountRowVM }) {
-  const { lm, lmBalance, wfBalance, balanceDelta, balancesMatch } = row;
+/** Shared by the header and every row so the columns line up across groups. */
+const GRID =
+  "grid grid-cols-[1.25rem_minmax(0,1fr)_7rem_1rem_minmax(0,1fr)_9rem] items-center gap-x-3";
+
+function LmBalance({ row }: { row: AccountRowVM }) {
+  return (
+    <span
+      role="group"
+      aria-label={`Lunch Money balance for ${row.lm.display_name ?? row.lm.name}`}
+      className={cn(
+        "text-right text-sm font-medium tabular-nums",
+        !row.isLinked && "text-muted-foreground",
+      )}
+    >
+      {formatMoney(row.lmBalance, row.lm.currency)}
+    </span>
+  );
+}
+
+function WfBalance({ row }: { row: AccountRowVM }) {
+  const { lm, entry, wfBalance, balanceDelta, balancesMatch } = row;
+  const label = `Wealthfolio balance for ${lm.display_name ?? lm.name}`;
+
+  if (entry.type === "ignore") return <span />;
+
+  if (entry.type === "create") {
+    return (
+      <span role="group" aria-label={label} className="text-right">
+        <Badge variant="secondary">New account</Badge>
+      </span>
+    );
+  }
+
+  if (wfBalance === null || balanceDelta === null) {
+    return (
+      <span
+        role="group"
+        aria-label={label}
+        title="No balance in Wealthfolio yet"
+        className="text-muted-foreground text-right text-sm"
+      >
+        —
+      </span>
+    );
+  }
+
+  const difference = formatMoney(Math.abs(balanceDelta), lm.currency);
+  const direction = balanceDelta > 0 ? "higher" : "lower";
 
   return (
-    <div className="grid w-[160px] shrink-0 gap-1 text-right">
+    <span role="group" aria-label={label} className="grid justify-items-end gap-1">
       <span className="text-sm font-medium tabular-nums">
-        {formatMoney(lmBalance, lm.currency)}
+        {formatMoney(wfBalance, lm.currency)}
       </span>
-      {wfBalance !== null && balancesMatch && (
-        <span className="text-success text-xs">Matches Wealthfolio</span>
+      {balancesMatch ? (
+        <Badge variant="success-subtle" className="gap-1">
+          <Icons.Check className="h-3 w-3" />
+          In sync
+        </Badge>
+      ) : (
+        <Badge
+          variant="warning-subtle"
+          className="gap-1 tabular-nums"
+          title={`Wealthfolio is ${difference} ${direction} than Lunch Money. Sync to update it.`}
+        >
+          <Icons.AlertTriangle className="h-3 w-3" />
+          {difference} {direction}
+        </Badge>
       )}
-      {wfBalance !== null && !balancesMatch && balanceDelta !== null && (
-        <span className="text-warning flex items-center justify-end gap-1 text-xs tabular-nums">
-          <Icons.AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-          Wealthfolio {formatMoney(wfBalance, lm.currency)} (
-          {formatMoney(balanceDelta, lm.currency, true)})
-        </span>
-      )}
-    </div>
+    </span>
   );
 }
 
@@ -187,8 +239,8 @@ interface AccountRowProps {
 function AccountRow({ row, vm, onDraftChange, onNavigate }: AccountRowProps) {
   const status = row.isLinked ? "Linked" : "Not linked";
   return (
-    <div className="flex items-center gap-3 p-4">
-      <span role="img" aria-label={status} title={status} className="shrink-0">
+    <div className={cn(GRID, "p-4")}>
+      <span role="img" aria-label={status} title={status}>
         {row.isLinked ? (
           <Icons.CheckCircle className="text-success h-5 w-5" />
         ) : (
@@ -196,23 +248,20 @@ function AccountRow({ row, vm, onDraftChange, onNavigate }: AccountRowProps) {
         )}
       </span>
 
-      <div className="min-w-0 flex-1">
-        <LmAccountInfo acc={row.lm} isLinked={row.isLinked} />
-      </div>
+      <LmAccountInfo acc={row.lm} isLinked={row.isLinked} />
+      <LmBalance row={row} />
 
-      <Icons.ArrowRight className="text-muted-foreground h-4 w-4 shrink-0" />
+      <Icons.ArrowRight className="text-muted-foreground h-4 w-4" />
 
-      <div className="min-w-0 flex-1">
-        <WfTarget
-          row={row}
-          wfAccounts={vm.wfAccounts}
-          claimedWfIds={vm.claimedWfIds}
-          onDraftChange={onDraftChange}
-          onNavigate={onNavigate}
-        />
-      </div>
+      <WfTarget
+        row={row}
+        wfAccounts={vm.wfAccounts}
+        claimedWfIds={vm.claimedWfIds}
+        onDraftChange={onDraftChange}
+        onNavigate={onNavigate}
+      />
 
-      <BalanceColumn row={row} />
+      <WfBalance row={row} />
     </div>
   );
 }
@@ -228,6 +277,22 @@ interface AccountLinkTableProps {
 export function AccountLinkTable({ vm, onDraftChange, onNavigate }: AccountLinkTableProps) {
   return (
     <div className="mt-4 space-y-6">
+      {/* Column labels; the border matches the cards' so the columns line up. */}
+      <div
+        className={cn(
+          GRID,
+          "text-muted-foreground border border-transparent px-4 text-xs font-semibold",
+        )}
+      >
+        <span />
+        <span data-column>Lunch Money</span>
+        <span />
+        <span />
+        <span data-column className="px-2">
+          Wealthfolio
+        </span>
+        <span />
+      </div>
       {vm.groups.map(({ institution, rows }) => (
         <div key={institution}>
           <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wider uppercase">

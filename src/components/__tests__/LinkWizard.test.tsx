@@ -94,8 +94,26 @@ describe("LinkWizard", () => {
     expect(options[0]).toHaveTextContent("Suggested");
     expect(options[0]).toHaveTextContent("Balance matches");
     expect(options[1]).toHaveTextContent("$2,500.00");
-    // Nothing chosen yet → Skip is the current choice
-    expect(options[3]).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("starts each new account on the suggested Wealthfolio account", () => {
+    render(<Harness lms={[lm(1)]} wfs={[wf("w1", "Other"), wf("w2", "Account 1")]} />);
+    expect(screen.getByRole("radio", { name: /Account 1/ })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+  });
+
+  it("starts on Skip when nothing is suggested", () => {
+    render(<Harness lms={[lm(1)]} wfs={[wf("w1", "Other")]} balances={{ w1: 5 }} />);
+    expect(screen.getByRole("radio", { name: /Skip/ })).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("keeps a choice made earlier instead of the suggestion", () => {
+    render(
+      <Harness lms={[lm(1)]} wfs={[wf("w1", "Account 1")]} saved={{ 1: { type: "ignore" } }} />,
+    );
+    expect(screen.getByRole("radio", { name: /Skip/ })).toHaveAttribute("aria-checked", "true");
   });
 
   it("describes the account that 'create' would make", () => {
@@ -113,7 +131,8 @@ describe("LinkWizard", () => {
       />,
     );
     const option = screen.getByRole("radio", { name: /Euro account/ });
-    expect(option).toHaveTextContent("Different currency (EUR) — can’t link");
+    expect(option).toHaveTextContent("Different currency (EUR)");
+    expect(option).not.toHaveTextContent("can’t link");
     expect(option).toBeDisabled();
     await userEvent.click(option);
     expect(option).toHaveAttribute("aria-checked", "false");

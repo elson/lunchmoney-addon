@@ -58,6 +58,22 @@ describe("fetchAllAccounts", () => {
     expect(result.map((a) => a.id)).toEqual([1, 2]);
   });
 
+  it("leaves out credit cards — Wealthfolio can't take their balance", async () => {
+    const ctx = createMockCtx();
+    mockNetwork(ctx, {
+      "/manual_accounts": {
+        status: 200,
+        data: { manual_accounts: [makeAccount(1), { ...makeAccount(2), type: "credit" }] },
+      },
+      "/plaid_accounts": {
+        status: 200,
+        data: { plaid_accounts: [{ ...makeAccount(3), type: "Credit" }, makeAccount(4)] },
+      },
+    });
+    const result = await fetchAllAccounts(ctx);
+    expect(result.map((a) => a.id)).toEqual([1, 4]);
+  });
+
   it("tags each account with where it comes from, so look-alike accounts can be told apart", async () => {
     const ctx = createMockCtx();
     mockNetwork(ctx, {

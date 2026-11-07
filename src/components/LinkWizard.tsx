@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Badge,
   Button,
@@ -66,6 +66,7 @@ export function LinkWizard({ vm, saving, onChoose, onCancel, onFinish }: LinkWiz
           key={steps[index].lm.id}
           row={steps[index]}
           candidates={vm.candidatesFor(steps[index].lm.id)}
+          defaultChoice={vm.defaultChoiceFor(steps[index].lm.id)}
           isLast={index === steps.length - 1}
           onChoose={onChoose}
           onBack={index > 0 ? () => setIndex(index - 1) : undefined}
@@ -81,14 +82,29 @@ export function LinkWizard({ vm, saving, onChoose, onCancel, onFinish }: LinkWiz
 interface AccountStepProps {
   row: AccountRowVM;
   candidates: readonly LinkCandidate[];
+  /** Applied when this account has no choice yet. */
+  defaultChoice: MappingEntry;
   isLast: boolean;
   onChoose: (lmId: number, entry: MappingEntry) => void;
   onBack?: () => void;
   onNext: () => void;
 }
 
-function AccountStep({ row, candidates, isLast, onChoose, onBack, onNext }: AccountStepProps) {
+function AccountStep({
+  row,
+  candidates,
+  defaultChoice,
+  isLast,
+  onChoose,
+  onBack,
+  onNext,
+}: AccountStepProps) {
   const { lm, entry } = row;
+  // Start a new account on the suggested choice; never override one already made.
+  useEffect(() => {
+    if (!row.hasChoice) onChoose(lm.id, defaultChoice);
+  }, [lm.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const name = lmName(lm);
   const currency = lm.currency.toUpperCase();
   const meta = [lm.institution_name, lm.type, lm.subtype].filter(Boolean).join(" · ");
@@ -136,7 +152,7 @@ function AccountStep({ row, candidates, isLast, onChoose, onBack, onNext }: Acco
                   {c.balanceMatches && <Badge variant="success-subtle">Balance matches</Badge>}
                   {!c.currencyMatches && (
                     <Badge variant="warning-subtle">
-                      Different currency ({c.account.currency}) — can’t link
+                      Different currency ({c.account.currency})
                     </Badge>
                   )}
                 </>

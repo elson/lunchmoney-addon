@@ -202,31 +202,74 @@ describe("AccountLinkTable", () => {
     expect(screen.getByText("42.00 NOT-A-CODE")).toBeInTheDocument();
   });
 
-  it("says when the linked Wealthfolio balance matches", () => {
-    const saved: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
+  it("labels the Lunch Money and Wealthfolio sides", () => {
     render(
       <AccountLinkTable
-        vm={makeVm(baseAccounts, [], {}, saved, { w1: 100.0 })}
+        vm={makeVm(baseAccounts, [])}
         onDraftChange={vi.fn()}
         onNavigate={vi.fn()}
       />,
     );
-    expect(screen.getByText("Matches Wealthfolio")).toBeInTheDocument();
+    expect(screen.getByText("Lunch Money", { selector: "[data-column]" })).toBeInTheDocument();
+    expect(screen.getByText("Wealthfolio", { selector: "[data-column]" })).toBeInTheDocument();
+  });
+
+  it("shows each side's balance, and that they're in sync", () => {
+    const saved: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
+    render(
+      <AccountLinkTable
+        vm={makeVm(baseAccounts, [wf("w1", "My Portfolio")], saved, saved, { w1: 100.0 })}
+        onDraftChange={vi.fn()}
+        onNavigate={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("Lunch Money balance for Checking")).toHaveTextContent("$100.00");
+    const wfSide = screen.getByLabelText("Wealthfolio balance for Checking");
+    expect(wfSide).toHaveTextContent("$100.00");
+    expect(wfSide).toHaveTextContent("In sync");
     expect(screen.queryByTestId("icon-alert-triangle")).toBeNull();
   });
 
-  it("shows the Wealthfolio balance and the difference when they don't match", () => {
+  it("says how much higher Wealthfolio is when the balances differ", () => {
     const saved: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
     render(
       <AccountLinkTable
-        vm={makeVm(baseAccounts, [], {}, saved, { w1: 200.0 })}
+        vm={makeVm(baseAccounts, [wf("w1", "My Portfolio")], saved, saved, { w1: 200.0 })}
         onDraftChange={vi.fn()}
         onNavigate={vi.fn()}
       />,
     );
+    const wfSide = screen.getByLabelText("Wealthfolio balance for Checking");
+    expect(wfSide).toHaveTextContent("$200.00");
+    expect(wfSide).toHaveTextContent("$100.00 higher");
     expect(screen.getByTestId("icon-alert-triangle")).toBeInTheDocument();
-    expect(screen.getByText(/Wealthfolio \$200\.00/)).toBeInTheDocument();
-    expect(screen.getByText(/\+\$100\.00/)).toBeInTheDocument();
+  });
+
+  it("says how much lower Wealthfolio is when the balances differ", () => {
+    const saved: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
+    render(
+      <AccountLinkTable
+        vm={makeVm(baseAccounts, [wf("w1", "My Portfolio")], saved, saved, { w1: 98.5 })}
+        onDraftChange={vi.fn()}
+        onNavigate={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("Wealthfolio balance for Checking")).toHaveTextContent(
+      "$1.50 lower",
+    );
+  });
+
+  it("marks an account that will be created", () => {
+    render(
+      <AccountLinkTable
+        vm={makeVm(baseAccounts, [], { 1: { type: "create" } })}
+        onDraftChange={vi.fn()}
+        onNavigate={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("Wealthfolio balance for Checking")).toHaveTextContent(
+      "New account",
+    );
   });
 
   it("calls onDraftChange with ignore when Skip dropdown item is clicked", async () => {

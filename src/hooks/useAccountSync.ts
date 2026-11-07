@@ -6,6 +6,9 @@ import { createSyncEngine, type LoadResult } from "../lib/syncEngine";
 import type { AccountMapping, MappingEntry } from "../types";
 import { buildAccountViewModel, type AccountViewModel } from "../lib/accountViewModel";
 
+/** How often the open page re-reads Wealthfolio balances (Lunch Money is only read on Sync). */
+export const WF_REFRESH_MS = 5_000;
+
 export type SyncPhase = "checking" | "no-api-key" | "loading" | "empty" | "ready";
 
 export type SyncStatus =
@@ -80,6 +83,29 @@ export function useAccountSync(ctx: AddonContext, paused: boolean): AccountSyncC
       }
     });
   }, [paused]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep Wealthfolio balances current while the page is open, e.g. after an
+  // edit in Wealthfolio itself. Paused while saving or syncing to avoid races.
+  const live = !paused && !!apiKey && !!lmAccounts && !isSaving && !isSyncing;
+  useEffect(() => {
+    if (!live) return;
+    let cancelled = false;
+    const id = setInterval(async () => {
+      try {
+        const r = await engine.refreshWealthfolio(savedMapping);
+        if (cancelled) return;
+        // Only re-render when something actually changed.
+        setWfAccounts((prev) => (sameJson(prev, r.wfAccounts) ? prev : r.wfAccounts));
+        setWfCashBalances((prev) => (sameJson(prev, r.wfCashBalances) ? prev : r.wfCashBalances));
+      } catch {
+        // Keep the last known balances; the next tick will try again.
+      }
+    }, WF_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [live, engine, savedMapping]);
 
   function applyLoad(r: LoadResult) {
     setLmAccounts(r.lmAccounts);
@@ -181,3 +207,5 @@ export function useAccountSync(ctx: AddonContext, paused: boolean): AccountSyncC
     },
   };
 }
+
+const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);

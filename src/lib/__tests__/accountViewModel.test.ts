@@ -98,32 +98,39 @@ describe("buildAccountViewModel", () => {
         expect(vm.rows[0].lmBalance).toBe(1234.56);
       });
 
-      it("returns wfBalance from wfCashBalances when savedMapping entry is existing", () => {
+      it("returns wfBalance from wfCashBalances for the Wealthfolio account the draft links to", () => {
         const saved: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
-        const vm = buildAccountViewModel([lm(1)], [], {}, saved, { w1: 200.0 });
+        const vm = buildAccountViewModel([lm(1)], [], saved, saved, { w1: 200.0 });
         expect(vm.rows[0].wfBalance).toBe(200.0);
       });
 
-      it("returns null wfBalance when savedEntry is absent", () => {
+      it("follows the account chosen in the draft, not the saved one", () => {
+        const saved: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
+        const draft: AccountMapping = { 1: { type: "existing", wfAccountId: "w2" } };
+        const vm = buildAccountViewModel([lm(1)], [], draft, saved, { w1: 200, w2: 300 });
+        expect(vm.rows[0].wfBalance).toBe(300);
+      });
+
+      it("returns null wfBalance when the draft has no link", () => {
         const vm = buildAccountViewModel([lm(1)], [], {}, {}, { w1: 200.0 });
         expect(vm.rows[0].wfBalance).toBeNull();
       });
 
-      it("returns null wfBalance when savedEntry is not existing type", () => {
+      it("returns null wfBalance when the draft skips the account", () => {
         const saved: AccountMapping = { 1: { type: "ignore" } };
-        const vm = buildAccountViewModel([lm(1)], [], {}, saved, { w1: 200.0 });
+        const vm = buildAccountViewModel([lm(1)], [], saved, saved, { w1: 200.0 });
         expect(vm.rows[0].wfBalance).toBeNull();
       });
 
       it("returns null wfBalance when wfAccountId not in wfCashBalances", () => {
         const saved: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
-        const vm = buildAccountViewModel([lm(1)], [], {}, saved, {});
+        const vm = buildAccountViewModel([lm(1)], [], saved, saved, {});
         expect(vm.rows[0].wfBalance).toBeNull();
       });
 
       it("computes balanceDelta as wfBalance - lmBalance", () => {
         const saved: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
-        const vm = buildAccountViewModel([lm(1, { balance: "100.00" })], [], {}, saved, {
+        const vm = buildAccountViewModel([lm(1, { balance: "100.00" })], [], saved, saved, {
           w1: 150.0,
         });
         expect(vm.rows[0].balanceDelta).toBeCloseTo(50.0);
@@ -136,7 +143,7 @@ describe("buildAccountViewModel", () => {
 
       it("balancesMatch is true when |delta| < 0.005", () => {
         const saved: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
-        const vm = buildAccountViewModel([lm(1, { balance: "100.00" })], [], {}, saved, {
+        const vm = buildAccountViewModel([lm(1, { balance: "100.00" })], [], saved, saved, {
           w1: 100.004,
         });
         expect(vm.rows[0].balancesMatch).toBe(true);
@@ -144,7 +151,7 @@ describe("buildAccountViewModel", () => {
 
       it("balancesMatch is false when |delta| >= 0.005", () => {
         const saved: AccountMapping = { 1: { type: "existing", wfAccountId: "w1" } };
-        const vm = buildAccountViewModel([lm(1, { balance: "100.00" })], [], {}, saved, {
+        const vm = buildAccountViewModel([lm(1, { balance: "100.00" })], [], saved, saved, {
           w1: 100.01,
         });
         expect(vm.rows[0].balancesMatch).toBe(false);
@@ -511,6 +518,40 @@ describe("linking wizard support", () => {
         {},
       );
       expect(vm.candidatesFor(1)[0]).toMatchObject({ currencyMatches: false, balance: null });
+    });
+
+    it("doesn't suggest an account just because both balances are zero", () => {
+      const vm = buildAccountViewModel(
+        [lm(1, { balance: "0.0000" })],
+        [wf("w1")],
+        {},
+        {},
+        { w1: 0 },
+      );
+      expect(vm.candidatesFor(1)[0]).toMatchObject({ suggested: false, balanceMatches: true });
+    });
+  });
+
+  describe("defaultChoiceFor", () => {
+    it("picks the suggested account, preferring a name match over a balance match", () => {
+      const vm = buildAccountViewModel(
+        [lm(1, { display_name: "Joint", balance: "250.00" })],
+        [wf("bal", { name: "Other" }), wf("name", { name: "Joint" })],
+        {},
+        {},
+        { bal: 250 },
+      );
+      expect(vm.defaultChoiceFor(1)).toEqual({ type: "existing", wfAccountId: "name" });
+    });
+
+    it("skips when nothing is suggested", () => {
+      const vm = buildAccountViewModel([lm(1)], [wf("w1", { name: "Other" })], {}, {}, {});
+      expect(vm.defaultChoiceFor(1)).toEqual({ type: "ignore" });
+    });
+
+    it("tells whether a choice has been made for an account", () => {
+      const vm = buildAccountViewModel([lm(1), lm(2)], [], { 1: { type: "ignore" } }, {}, {});
+      expect(vm.rows.map((r) => r.hasChoice)).toEqual([true, false]);
     });
   });
 

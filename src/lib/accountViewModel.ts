@@ -98,6 +98,8 @@ export interface AccountRowVM {
   readonly wfBalance: number | null;
   readonly balanceDelta: number | null;
   readonly balancesMatch: boolean;
+  /** Whether the draft has an explicit choice for this account. */
+  readonly hasChoice: boolean;
 }
 
 export interface AccountRowGroup {
@@ -109,8 +111,9 @@ export interface LinkCandidate {
   readonly account: Account;
   /** Current Wealthfolio cash balance, or null if unknown. */
   readonly balance: number | null;
-  /** Same name, or same currency and balance — probably the right account. */
+  /** Same name, or same currency and (non-zero) balance — probably the right account. */
   readonly suggested: boolean;
+  readonly nameMatches: boolean;
   readonly balanceMatches: boolean;
   readonly currencyMatches: boolean;
 }
@@ -141,6 +144,8 @@ export interface AccountViewModel {
   filtered(search: string, tab: FilterTab): AccountViewModel;
   /** Wealthfolio accounts this Lunch Money account can be linked to, suggested ones first. */
   candidatesFor(lmId: number): readonly LinkCandidate[];
+  /** The choice to start from: the best suggested account, otherwise skip. */
+  defaultChoiceFor(lmId: number): MappingEntry;
   /** Balances that confirming the draft would import (matching ones are skipped). */
   readonly importPlan: readonly BalanceImport[];
   /** Lunch Money accounts the draft skips. */
@@ -184,12 +189,16 @@ function linkCandidates(
       const balance = id in wfCashBalances ? wfCashBalances[id] : null;
       const currencyMatches = account.currency.toUpperCase() === lm.currency.toUpperCase();
       const balanceMatches = balance !== null && balancesEqual(balance, lmBalance);
+      const nameMatches = normalizeName(account.name) === lmName;
+      // Zero balances match too easily (every empty account would) to suggest on.
       const suggested =
-        currencyMatches && (normalizeName(account.name) === lmName || balanceMatches);
-      return { account, balance, suggested, balanceMatches, currencyMatches };
+        currencyMatches && (nameMatches || (balanceMatches && !balancesEqual(lmBalance, 0)));
+      return { account, balance, suggested, nameMatches, balanceMatches, currencyMatches };
     });
-  // Stable: suggested first, then same-currency accounts, then ones that can't be linked.
-  const rank = (c: LinkCandidate) => (c.suggested ? 0 : c.currencyMatches ? 1 : 2);
+  // Stable: name-suggested, then other suggested, then same-currency accounts,
+  // then ones that can't be linked.
+  const rank = (c: LinkCandidate) =>
+    c.suggested ? (c.nameMatches ? 0 : 1) : c.currencyMatches ? 2 : 3;
   return [...candidates].sort((a, b) => rank(a) - rank(b));
 }
 
@@ -226,6 +235,10 @@ function createView(rows: readonly AccountRowVM[], core: ViewModelCore): Account
       return core.lazyChanges();
     },
     candidatesFor: core.candidatesFor,
+    defaultChoiceFor(lmId: number): MappingEntry {
+      const best = core.candidatesFor(lmId).find((c) => c.suggested);
+      return best ? { type: "existing", wfAccountId: String(best.account.id) } : { type: "ignore" };
+    },
     get importPlan() {
       return core.lazyImportPlan();
     },
@@ -273,16 +286,26 @@ export function buildAccountViewModel(
 
     const lmBalance = parseFloat(lm.balance);
 
-    const savedEntry = savedMapping[lm.id];
+    // The balance of the account currently chosen, so it follows the dropdown.
     const wfBalance =
-      savedEntry?.type === "existing" && savedEntry.wfAccountId in wfCashBalances
-        ? wfCashBalances[savedEntry.wfAccountId]
+      entry.type === "existing" && entry.wfAccountId in wfCashBalances
+        ? wfCashBalances[entry.wfAccountId]
         : null;
 
     const balanceDelta = wfBalance !== null ? wfBalance - lmBalance : null;
     const balancesMatch = wfBalance !== null && balancesEqual(wfBalance, lmBalance);
 
-    return { lm, entry, isLinked, wfAccount, lmBalance, wfBalance, balanceDelta, balancesMatch };
+    return {
+      lm,
+      entry,
+      isLinked,
+      wfAccount,
+      lmBalance,
+      wfBalance,
+      balanceDelta,
+      balancesMatch,
+      hasChoice: lm.id in draft,
+    };
   });
 
   // Count only "existing" entries in savedMapping (intentional — "create" entries aren't saved yet)

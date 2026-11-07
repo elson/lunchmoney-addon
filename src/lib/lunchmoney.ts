@@ -53,8 +53,14 @@ export async function fetchAllAccounts(ctx: AddonContext): Promise<LunchmoneyAcc
   return [
     ...manual.map((a) => ({ ...a, source: "manual" as const })),
     ...plaid.map((a) => ({ ...a, source: "synced" as const })),
-  ];
+  ].filter((a) => !isCreditCard(a));
 }
+
+/**
+ * Wealthfolio tracks credit cards from their transactions and its snapshot API
+ * only takes balances for holdings accounts, so the add-on ignores them entirely.
+ */
+const isCreditCard = (a: LunchmoneyAccount) => a.type?.toLowerCase() === "credit";
 
 export type ConnectionStatus =
   | { ok: true; budgetName: string; userName: string }

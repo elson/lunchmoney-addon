@@ -74,6 +74,9 @@ function readyController(
   });
 }
 
+/** With nothing linked the page leads with the wizard; this reveals the table instead. */
+const showTable = () => userEvent.click(screen.getByRole("button", { name: "Show all accounts" }));
+
 beforeEach(() => {
   vi.mocked(useAccountSync).mockReturnValue(makeController());
 });
@@ -85,33 +88,36 @@ describe("MainPage", () => {
     expect(screen.getByText("Loading…")).toBeInTheDocument();
   });
 
-  it("shows no API key placeholder", () => {
+  it("asks for a Lunch Money token before anything else", () => {
     vi.mocked(useAccountSync).mockReturnValue(makeController({ status: { phase: "no-api-key" } }));
     render(<MainPage ctx={createMockCtx()} />);
     expect(screen.getByTestId("empty")).toBeInTheDocument();
-    expect(screen.getByText("No API key set")).toBeInTheDocument();
+    expect(screen.getByText("Connect Lunch Money")).toBeInTheDocument();
   });
 
-  it("shows 'No accounts found' when status is empty", () => {
+  it("says when Lunch Money has no accounts", () => {
     vi.mocked(useAccountSync).mockReturnValue(makeController({ status: { phase: "empty" } }));
     render(<MainPage ctx={createMockCtx()} />);
-    expect(screen.getByText("No accounts found.")).toBeInTheDocument();
+    expect(screen.getByTestId("empty")).toBeInTheDocument();
+    expect(screen.getByText("No Lunch Money accounts")).toBeInTheDocument();
   });
 
-  it("renders search and filter controls when accounts are present", () => {
+  it("renders search and filter controls when accounts are present", async () => {
     vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1)], [wf("w1")]));
     render(<MainPage ctx={createMockCtx()} />);
+    await showTable();
     expect(screen.getByPlaceholderText("Search accounts...")).toBeInTheDocument();
     expect(screen.getByText("all")).toBeInTheDocument();
     expect(screen.getByText("linked")).toBeInTheDocument();
     expect(screen.getByText("skipped")).toBeInTheDocument();
   });
 
-  it("shows Undo and Save buttons when draft differs from savedMapping", () => {
+  it("shows Undo and Save buttons when draft differs from savedMapping", async () => {
     vi.mocked(useAccountSync).mockReturnValue(
       readyController([lm(1)], [wf("w1")], { 1: { type: "create" } }, {}),
     );
     render(<MainPage ctx={createMockCtx()} />);
+    await showTable();
     expect(screen.getByText("Undo")).toBeInTheDocument();
     expect(screen.getByText("Save Changes")).toBeInTheDocument();
   });
@@ -181,12 +187,22 @@ describe("MainPage", () => {
   });
 
   describe("link wizard", () => {
-    it("invites first-time users to step through their accounts", async () => {
+    it("leads first-time users into the wizard instead of the table", async () => {
       vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1), lm(2)], [wf("w1")]));
       render(<MainPage ctx={createMockCtx()} />);
-      expect(screen.getByText("Link your accounts")).toBeInTheDocument();
-      await userEvent.click(screen.getByRole("button", { name: "Start" }));
+      expect(screen.getByTestId("empty")).toHaveTextContent("Link your accounts");
+      expect(screen.getByText(/Found 2 Lunch Money accounts/)).toBeInTheDocument();
+      expect(screen.queryByPlaceholderText("Search accounts...")).toBeNull();
+      await userEvent.click(screen.getByRole("button", { name: "Start linking" }));
       expect(screen.getByText("Account 1 of 2")).toBeInTheDocument();
+    });
+
+    it("can show the table instead of the wizard", async () => {
+      vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1)], [wf("w1")]));
+      render(<MainPage ctx={createMockCtx()} />);
+      await showTable();
+      expect(screen.queryByText("Link your accounts")).toBeNull();
+      expect(screen.getByPlaceholderText("Search accounts...")).toBeInTheDocument();
     });
 
     it("doesn't show the invitation once accounts are linked", () => {
@@ -211,10 +227,10 @@ describe("MainPage", () => {
         readyController([lm(1)], [wf("w1")], {}, {}, { actions }),
       );
       render(<MainPage ctx={createMockCtx()} />);
-      await userEvent.click(screen.getByRole("button", { name: "Start" }));
+      await userEvent.click(screen.getByRole("button", { name: "Start linking" }));
       await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
       expect(actions.undo).toHaveBeenCalled();
-      expect(screen.getByPlaceholderText("Search accounts...")).toBeInTheDocument();
+      expect(screen.queryByText(/Account 1 of 1/)).toBeNull();
     });
 
     it("applies the wizard's changes and returns to the table", async () => {
@@ -228,7 +244,7 @@ describe("MainPage", () => {
       await userEvent.click(screen.getByRole("button", { name: "Review changes" }));
       await userEvent.click(screen.getByRole("button", { name: "Apply changes" }));
       expect(actions.confirm).toHaveBeenCalledWith({ importBalances: true });
-      expect(screen.getByPlaceholderText("Search accounts...")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Apply changes" })).toBeNull();
     });
 
     it("passes choices made in the wizard to the draft", async () => {
@@ -237,7 +253,7 @@ describe("MainPage", () => {
         readyController([lm(1)], [wf("w1")], {}, {}, { actions }),
       );
       render(<MainPage ctx={createMockCtx()} />);
-      await userEvent.click(screen.getByRole("button", { name: "Start" }));
+      await userEvent.click(screen.getByRole("button", { name: "Start linking" }));
       await userEvent.click(screen.getByRole("radio", { name: /WF w1/ }));
       expect(actions.changeDraft).toHaveBeenCalledWith(1, { type: "existing", wfAccountId: "w1" });
     });
@@ -248,13 +264,25 @@ describe("MainPage", () => {
       readyController([lm(1)], [wf("w1")], { 1: { type: "create" } }, {}),
     );
     render(<MainPage ctx={createMockCtx()} />);
+    await showTable();
     await userEvent.click(screen.getByText("Save Changes"));
     expect(screen.getByTestId("dialog")).toBeInTheDocument();
+  });
+
+  it("shows linked accounts first once there are some", () => {
+    const saved = { 1: { type: "existing" as const, wfAccountId: "w1" } };
+    vi.mocked(useAccountSync).mockReturnValue(
+      readyController([lm(1), lm(2)], [wf("w1")], saved, saved),
+    );
+    render(<MainPage ctx={createMockCtx()} />);
+    expect(screen.getByText("linked")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByText("Account 2")).toBeNull();
   });
 
   it("switches to linked tab on filter click", async () => {
     vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1)], [wf("w1")]));
     render(<MainPage ctx={createMockCtx()} />);
+    await showTable();
     expect(screen.getByText("all")).toHaveAttribute("aria-pressed", "true");
     await userEvent.click(screen.getByText("linked"));
     expect(screen.getByText("linked")).toHaveAttribute("aria-pressed", "true");
@@ -264,6 +292,7 @@ describe("MainPage", () => {
   it("keeps the active filter tab selected when it is clicked again", async () => {
     vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1)], [wf("w1")]));
     render(<MainPage ctx={createMockCtx()} />);
+    await showTable();
     await userEvent.click(screen.getByText("all"));
     expect(screen.getByText("all")).toHaveAttribute("aria-pressed", "true");
   });
@@ -282,6 +311,7 @@ describe("MainPage", () => {
       ),
     );
     render(<MainPage ctx={createMockCtx()} />);
+    await showTable();
     await userEvent.click(screen.getByText("Save Changes"));
     await userEvent.click(screen.getByText("Confirm"));
     expect(confirm).toHaveBeenCalledTimes(1);
@@ -292,6 +322,7 @@ describe("MainPage", () => {
       readyController([lm(1)], [wf("w1")], { 1: { type: "create" } }, {}),
     );
     render(<MainPage ctx={createMockCtx()} />);
+    await showTable();
     await userEvent.click(screen.getByText("Save Changes"));
     await userEvent.click(screen.getByText("Cancel"));
     expect(screen.queryByTestId("dialog")).toBeNull();
@@ -306,6 +337,7 @@ describe("MainPage", () => {
   it("shows 'No accounts match your search' for empty filtered list", async () => {
     vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1)], [wf("w1")]));
     render(<MainPage ctx={createMockCtx()} />);
+    await showTable();
     const input = screen.getByPlaceholderText("Search accounts...");
     await userEvent.type(input, "zzz_no_match");
     expect(screen.getByText("No accounts match your search.")).toBeInTheDocument();
@@ -314,6 +346,7 @@ describe("MainPage", () => {
   it("clears search when clear button is clicked", async () => {
     vi.mocked(useAccountSync).mockReturnValue(readyController([lm(1)], [wf("w1")]));
     render(<MainPage ctx={createMockCtx()} />);
+    await showTable();
     const input = screen.getByPlaceholderText("Search accounts...");
     await userEvent.type(input, "zzz");
     await userEvent.click(screen.getByLabelText("Clear search"));
@@ -328,11 +361,11 @@ describe("MainPage", () => {
     expect(ctx.api.navigation.navigate).toHaveBeenCalledWith("/addons/lunchmoney-addon/settings");
   });
 
-  it("navigates to settings from 'Get started' button when no API key", async () => {
+  it("goes to settings to add a token", async () => {
     vi.mocked(useAccountSync).mockReturnValue(makeController({ status: { phase: "no-api-key" } }));
     const ctx = createMockCtx();
     render(<MainPage ctx={ctx} />);
-    await userEvent.click(screen.getByText("Get started"));
+    await userEvent.click(screen.getByRole("button", { name: "Add access token" }));
     expect(ctx.api.navigation.navigate).toHaveBeenCalledWith("/addons/lunchmoney-addon/settings");
   });
 

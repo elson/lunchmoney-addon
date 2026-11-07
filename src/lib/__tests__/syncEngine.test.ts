@@ -395,3 +395,24 @@ describe("syncBalances", () => {
     expect(ctx.api.portfolio.update).not.toHaveBeenCalled();
   });
 });
+
+// ─── refreshWealthfolio ───────────────────────────────────────────────────────
+
+describe("refreshWealthfolio", () => {
+  it("re-reads Wealthfolio accounts and balances without calling Lunch Money", async () => {
+    const ctx = createMockCtx();
+    vi.mocked(fetchAllAccounts).mockClear();
+    vi.mocked(ctx.api.accounts.getAll).mockResolvedValue([wfAccount("w1")] as never);
+    vi.mocked(ctx.api.portfolio.getLatestValuations).mockResolvedValue([
+      { accountId: "w1", cashBalance: 7 } as never,
+    ]);
+
+    const result = await createSyncEngine(ctx).refreshWealthfolio({
+      1: { type: "existing", wfAccountId: "w9" },
+    });
+
+    expect(fetchAllAccounts).not.toHaveBeenCalled();
+    expect(ctx.api.portfolio.getLatestValuations).toHaveBeenCalledWith(["w9", "w1"]);
+    expect(result).toEqual({ wfAccounts: [wfAccount("w1")], wfCashBalances: { w1: 7 } });
+  });
+});

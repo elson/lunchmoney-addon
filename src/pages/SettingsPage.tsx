@@ -98,75 +98,77 @@ export default function SettingsPage({ ctx }: { ctx: AddonContext }) {
       />
       <Separator />
       <PageContent withPadding>
-        <Card className="max-w-2xl">
-          <CardHeader>
-            <CardTitle>Connection</CardTitle>
-            <CardDescription>
-              The add-on reads your account balances from Lunch Money. It never changes anything in
-              Lunch Money.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <ConnectionLine connection={connection} />
+        <div className="flex min-h-[calc(100vh-12rem)] items-center justify-center">
+          <Card className="w-full max-w-2xl">
+            <CardHeader>
+              <CardTitle>Connection</CardTitle>
+              <CardDescription>
+                The add-on reads your account balances from Lunch Money. It never changes anything
+                in Lunch Money.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <ConnectionLine connection={connection} />
 
-            <div className="space-y-2">
-              <Label htmlFor="api-key">Access token</Label>
-              <div className="relative">
-                <Input
-                  id="api-key"
-                  type={showToken ? "text" : "password"}
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={tokenInput}
-                  onChange={(e) => setTokenInput(e.target.value)}
-                  placeholder={
-                    hasToken
-                      ? "Paste a new token to replace the saved one"
-                      : "Paste your Lunch Money access token"
-                  }
-                  className="pr-10 font-mono"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowToken((s) => !s)}
-                  aria-label={showToken ? "Hide token" : "Show token"}
-                  className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
-                >
-                  {showToken ? (
-                    <Icons.EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Icons.Eye className="h-4 w-4" />
-                  )}
-                </button>
+              <div className="space-y-2">
+                <Label htmlFor="api-key">Access token</Label>
+                <div className="relative">
+                  <Input
+                    id="api-key"
+                    type={showToken ? "text" : "password"}
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={tokenInput}
+                    onChange={(e) => setTokenInput(e.target.value)}
+                    placeholder={
+                      hasToken
+                        ? "Paste a new token to replace the saved one"
+                        : "Paste your Lunch Money access token"
+                    }
+                    className="pr-10 font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowToken((s) => !s)}
+                    aria-label={showToken ? "Hide token" : "Show token"}
+                    className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
+                  >
+                    {showToken ? (
+                      <Icons.EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Icons.Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                <p className="text-muted-foreground text-sm">
+                  Create one in Lunch Money under <strong>Settings → Developers</strong>. It’s
+                  stored encrypted in Wealthfolio and only ever sent to api.lunchmoney.dev.
+                </p>
               </div>
-              <p className="text-muted-foreground text-sm">
-                Create one in Lunch Money under <strong>Settings → Developers</strong>. It’s stored
-                encrypted in Wealthfolio and only ever sent to api.lunchmoney.dev.
-              </p>
-            </div>
-          </CardContent>
-          <CardFooter className="flex justify-between gap-2">
-            <Button onClick={handleSave} disabled={!tokenInput.trim() || saving}>
-              {saving ? (
-                <>
-                  <Icons.Spinner className="h-4 w-4 animate-spin" />
-                  Connecting…
-                </>
-              ) : (
-                "Save and connect"
-              )}
-            </Button>
-            {hasToken && (
-              <Button
-                variant="ghost"
-                className="text-destructive"
-                onClick={() => setConfirmRemove(true)}
-              >
-                Remove token
+            </CardContent>
+            <CardFooter className="flex justify-between gap-2">
+              <Button onClick={handleSave} disabled={!tokenInput.trim() || saving}>
+                {saving ? (
+                  <>
+                    <Icons.Spinner className="h-4 w-4 animate-spin" />
+                    Connecting…
+                  </>
+                ) : (
+                  "Save and connect"
+                )}
               </Button>
-            )}
-          </CardFooter>
-        </Card>
+              {hasToken && (
+                <Button
+                  variant="ghost"
+                  className="text-destructive"
+                  onClick={() => setConfirmRemove(true)}
+                >
+                  Remove token
+                </Button>
+              )}
+            </CardFooter>
+          </Card>
+        </div>
 
         <AlertDialog open={confirmRemove} onOpenChange={setConfirmRemove}>
           <AlertDialogContent>
