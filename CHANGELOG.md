@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-07
+
 ### Added
 
 - The add-on syncs linked balances by itself whenever Wealthfolio opens, unless
