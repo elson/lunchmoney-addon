@@ -8,6 +8,31 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-07
+
+### Added
+
+- Wealthfolio balances refresh automatically every few seconds while the page is
+  open
+- Centred call-to-action screens when no token is set, nothing is linked yet, or
+  Lunch Money has no accounts
+
+### Changed
+
+- The accounts table labels the Lunch Money and Wealthfolio sides, shows each
+  side's balance, and marks linked accounts "In sync" or how much higher or
+  lower Wealthfolio is
+- The accounts list opens on Linked once any account is linked
+- The linking wizard pre-selects the suggested account, or Skip if there's none;
+  matching zero balances no longer count as a suggestion
+- Lunch Money credit cards are no longer shown — Wealthfolio can't take their
+  balance
+- The settings card is centred on the page
+
+### Fixed
+
+- A row's Wealthfolio balance now follows the account chosen in the dropdown
+
 ## [0.6.0] - 2026-11-07
 
 ### Added
