@@ -56,8 +56,8 @@
     },
     {
       "category": "secrets",
-      "functions": ["get", "set", "delete"],
-      "purpose": "Store Lunch Money API key securely"
+      "functions": ["get", "set", "delete", "use"],
+      "purpose": "Store Lunch Money API key securely and let Wealthfolio attach it to Lunch Money API requests"
     },
     {
       "category": "portfolio",

@@ -35,7 +35,7 @@ Requires **Wealthfolio 3.12 or newer**.
 | --------- | ------------------------------- | ----------------------------------------------------------- |
 | accounts  | `getAll`, `create`              | Display and link accounts                                   |
 | snapshots | `save`                          | Write balance snapshots                                     |
-| secrets   | `get`, `set`, `delete`          | Store your API key securely (encrypted)                     |
+| secrets   | `get`, `set`, `delete`, `use`   | Store your API key securely and attach it to API requests   |
 | portfolio | `getLatestValuations`, `update` | Compare Wealthfolio cash balances to Lunch Money            |
 | network   | `request`                       | Read accounts from `api.lunchmoney.dev` (GET requests only) |
 

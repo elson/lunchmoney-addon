@@ -8,6 +8,12 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Fixed
+
+- Declare the `secrets.use` permission so Wealthfolio can attach the API key to
+  Lunch Money requests (0.4.0 failed with "tried to use 'network.request'
+  without permission")
+
 ## [0.4.0] - 2026-11-07
 
 ### Changed
