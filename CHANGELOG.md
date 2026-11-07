@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-07
+
 ### Fixed
 
 - Declare the `secrets.use` permission so Wealthfolio can attach the API key to
