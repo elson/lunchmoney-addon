@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-07
+
 ### Changed
 
 - The companion takes Wealthfolio's password only from `WEALTHFOLIO_PASSWORD`.
